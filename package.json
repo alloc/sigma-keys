@@ -1,0 +1,35 @@
+{
+  "name": "sigma-keys",
+  "type": "module",
+  "version": "0.0.0",
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT",
+  "author": "Alec Larson",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aleclarson/sigma-keys.git"
+  },
+  "scripts": {
+    "dev": "tsdown --sourcemap --watch",
+    "build": "tsdown",
+    "format": "oxfmt .",
+    "lint": "oxlint src",
+    "test": "vitest",
+    "prepublishOnly": "pnpm build"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "oxfmt": "*",
+    "oxlint": "*",
+    "radashi": "*",
+    "tsdown": "*",
+    "typescript": "*",
+    "vitest": "*"
+  }
+}
