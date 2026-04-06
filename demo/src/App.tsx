@@ -1,11 +1,11 @@
-import type { ComponentChildren, JSX, RefObject } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
 import {
   createShortcuts,
   type EvaluationTrace,
   type RecordingSession,
   type ShortcutRuntime,
-} from "sigma-keys";
+} from "powerkeys";
+import type { ComponentChildren, JSX, RefObject } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import styles from "./App.module.css";
 
 type DemoTab = "basic" | "scope" | "sequence" | "recording";
@@ -19,7 +19,7 @@ export function App() {
     <main class={styles.app}>
       <div class={styles.shell}>
         <header class={styles.hero}>
-          <p class={styles.eyebrow}>sigma-keys</p>
+          <p class={styles.eyebrow}>powerkeys</p>
           <h1 class={styles.title}>
             Modern keyboard shortcuts with scopes, sequences, and when clauses.
           </h1>

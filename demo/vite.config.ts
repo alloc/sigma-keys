@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import preact from "@preact/preset-vite";
+import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [preact()],
   resolve: {
     alias: {
-      "sigma-keys": resolve(__dirname, "../src/index.ts"),
+      powerkeys: resolve(__dirname, "../src/index.ts"),
     },
   },
   build: {

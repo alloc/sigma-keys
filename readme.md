@@ -1,5 +1,5 @@
-# sigma-keys
+# powerkeys
 
 ```
-pnpm add sigma-keys
+pnpm add powerkeys
 ```

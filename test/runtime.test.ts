@@ -12,7 +12,7 @@ function keyup(target: EventTarget, init: KeyboardEventInit & { key: string }): 
   return event;
 }
 
-describe("sigma-keys", () => {
+describe("powerkeys", () => {
   afterEach(() => {
     document.body.innerHTML = "";
   });

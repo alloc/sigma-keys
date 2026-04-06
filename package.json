@@ -1,11 +1,11 @@
 {
-  "name": "sigma-keys",
+  "name": "powerkeys",
   "version": "0.0.0",
   "license": "MIT",
   "author": "Alec Larson",
   "repository": {
     "type": "git",
-    "url": "https://github.com/aleclarson/sigma-keys.git"
+    "url": "https://github.com/alloc/powerkeys.git"
   },
   "files": [
     "dist"
@@ -29,7 +29,7 @@
   },
   "dependencies": {
     "@casbin/expression-eval": "^5.3.0",
-    "sigma-keys": "link:"
+    "powerkeys": "link:"
   },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.5",
