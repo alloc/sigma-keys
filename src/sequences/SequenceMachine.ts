@@ -1,20 +1,20 @@
-import type { BindingRecord, Candidate, SequenceState } from "../types/internal";
-import type { NormalizedKeyEvent, SequenceSnapshot } from "../types/public";
-import { matchesStep } from "../runtime/dispatch";
+import type { BindingRecord, Candidate, SequenceState } from '../types/internal'
+import type { NormalizedKeyEvent, SequenceSnapshot } from '../types/public'
+import { matchesStep } from '../runtime/dispatch'
 
 export class SequenceMachine {
-  private states: SequenceState[] = [];
+  private states: SequenceState[] = []
 
   prune(now: number): void {
-    this.states = this.states.filter((state) => state.expiresAt > now);
+    this.states = this.states.filter((state) => state.expiresAt > now)
   }
 
   removeBinding(bindingId: string): void {
-    this.states = this.states.filter((state) => state.bindingId !== bindingId);
+    this.states = this.states.filter((state) => state.bindingId !== bindingId)
   }
 
   clear(): void {
-    this.states = [];
+    this.states = []
   }
 
   snapshots(now: number): readonly SequenceSnapshot[] {
@@ -25,17 +25,17 @@ export class SequenceMachine {
         matchedScope: state.matchedScope,
         stepIndex: state.stepIndex,
         expiresAt: state.expiresAt,
-      }));
+      }))
   }
 
   cloneActive(now: number, activeScopes: readonly string[]): SequenceState[] {
     return this.states
       .filter((state) => state.expiresAt > now && activeScopes.includes(state.matchedScope))
-      .map((state) => ({ ...state }));
+      .map((state) => ({ ...state }))
   }
 
   commit(states: SequenceState[]): void {
-    this.states = states;
+    this.states = states
   }
 
   evaluateBinding(
@@ -47,56 +47,56 @@ export class SequenceMachine {
     sourceStates: readonly SequenceState[],
     nextStates: SequenceState[],
   ): { producedCandidate: boolean; keptState: boolean; candidate?: Candidate } {
-    let producedCandidate = false;
-    let keptState = false;
-    let candidate: Candidate | undefined;
+    let producedCandidate = false
+    let keptState = false
+    let candidate: Candidate | undefined
 
     for (const state of sourceStates) {
       if (state.bindingId !== binding.id || state.matchedScope !== matchedScope) {
-        continue;
+        continue
       }
       if (binding.keyEvent !== normalized.type) {
-        nextStates.push(state);
-        keptState = true;
-        continue;
+        nextStates.push(state)
+        keptState = true
+        continue
       }
       if (normalized.repeat && !binding.allowRepeat) {
-        nextStates.push(state);
-        keptState = true;
-        continue;
+        nextStates.push(state)
+        keptState = true
+        continue
       }
-      const expectedStep = binding.steps[state.stepIndex];
+      const expectedStep = binding.steps[state.stepIndex]
       if (expectedStep && matchesStep(normalized, expectedStep)) {
         if (state.stepIndex === binding.steps.length - 1) {
-          producedCandidate = true;
+          producedCandidate = true
           candidate = {
             binding,
             matchedScope,
-            kind: "sequence",
+            kind: 'sequence',
             sequenceLength: binding.steps.length,
-          };
+          }
         } else {
           nextStates.push({
             ...state,
             stepIndex: state.stepIndex + 1,
             expiresAt: now + sequenceTimeout,
-          });
-          keptState = true;
+          })
+          keptState = true
         }
       }
     }
 
     if (binding.keyEvent === normalized.type && (!normalized.repeat || binding.allowRepeat)) {
-      const firstStep = binding.steps[0]!;
+      const firstStep = binding.steps[0]!
       if (matchesStep(normalized, firstStep)) {
         if (binding.steps.length === 1) {
-          producedCandidate = true;
+          producedCandidate = true
           candidate = {
             binding,
             matchedScope,
-            kind: "sequence",
+            kind: 'sequence',
             sequenceLength: 1,
-          };
+          }
         } else {
           nextStates.push({
             bindingId: binding.id,
@@ -104,12 +104,12 @@ export class SequenceMachine {
             matchedScope,
             stepIndex: 1,
             expiresAt: now + sequenceTimeout,
-          });
-          keptState = true;
+          })
+          keptState = true
         }
       }
     }
 
-    return { producedCandidate, keptState, candidate };
+    return { producedCandidate, keptState, candidate }
   }
 }

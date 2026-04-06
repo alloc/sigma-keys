@@ -1,146 +1,483 @@
-export type EditablePolicy = "ignore-editable" | "allow-in-editable" | "allow-if-meta";
-export type KeyEventType = "keydown" | "keyup";
+/**
+ * Controls whether a binding may run while focus is inside an editable element.
+ *
+ * - `"ignore-editable"` blocks the binding in `input`, `textarea`, `select`, and
+ *   `contenteditable` targets.
+ * - `"allow-in-editable"` always allows the binding.
+ * - `"allow-if-meta"` allows the binding only while Ctrl or Meta is pressed.
+ */
+export type EditablePolicy = 'ignore-editable' | 'allow-in-editable' | 'allow-if-meta'
 
+/** Keyboard event phase used for bindings and recording. */
+export type KeyEventType = 'keydown' | 'keyup'
+
+/** Options for creating a shortcut runtime. */
 export type ShortcutOptions = {
-  target: Document | HTMLElement;
-  sequenceTimeout?: number;
-  editablePolicy?: EditablePolicy;
-  getActiveScopes?: () => Iterable<string>;
-  onError?: (error: unknown, info: ErrorInfo) => void;
-};
+  /**
+   * Event boundary for the runtime.
+   *
+   * Use `document` for app-wide shortcuts, or an element to limit matching to
+   * events that bubble from within that subtree.
+   */
+  target: Document | HTMLElement
 
+  /**
+   * Time window, in milliseconds, before an in-progress sequence expires.
+   *
+   * @defaultValue `1000`
+   */
+  sequenceTimeout?: number
+
+  /**
+   * Default editable-target policy for bindings that do not override it.
+   *
+   * @defaultValue `"ignore-editable"`
+   */
+  editablePolicy?: EditablePolicy
+
+  /**
+   * Returns the active scopes in precedence order, from highest to lowest.
+   *
+   * The runtime always appends the `"root"` scope after the returned scopes.
+   */
+  getActiveScopes?: () => Iterable<string>
+
+  /**
+   * Receives errors thrown by handlers or recording callbacks.
+   *
+   * When omitted, errors are rethrown asynchronously.
+   */
+  onError?: (error: unknown, info: ErrorInfo) => void
+}
+
+/** Match data passed to a winning shortcut handler. */
 export type ShortcutMatch = {
-  bindingId: string;
-  combo: string;
-  sequence?: string;
-  event: NormalizedKeyEvent;
-  context: Record<string, unknown>;
-  matchedScope: string;
-};
+  /** Generated identifier for the winning binding. */
+  bindingId: string
 
-export type ShortcutHandler = (match: ShortcutMatch) => void;
+  /**
+   * Canonical combo expression for the binding's first step.
+   *
+   * For sequence bindings, use `sequence` to read the full expression.
+   */
+  combo: string
 
+  /** Canonical full sequence expression when the winning binding is a sequence. */
+  sequence?: string
+
+  /** Normalized keyboard event data for the winning event. */
+  event: NormalizedKeyEvent
+
+  /**
+   * Evaluation context for `when` clauses and handlers.
+   *
+   * User-defined context is available both under `context` and at its original
+   * top-level keys, alongside the built-in `event`, `scope`, and `runtime`
+   * namespaces.
+   */
+  context: Record<string, unknown>
+
+  /** Active scope that selected this binding. */
+  matchedScope: string
+}
+
+/**
+ * Runs when a binding wins dispatch.
+ *
+ * Exceptions are routed to `ShortcutOptions.onError`.
+ */
+export type ShortcutHandler = (match: ShortcutMatch) => void
+
+/** Disposable handle returned when a binding is registered. */
 export type BindingHandle = {
-  id: string;
-  dispose(): boolean;
-};
+  /** Generated identifier for the binding. */
+  id: string
 
+  /**
+   * Removes the binding.
+   *
+   * @returns `true` when the binding existed and was removed.
+   */
+  dispose(): boolean
+}
+
+/** Metadata describing an error reported by the runtime. */
 export type ErrorInfo = {
-  phase: "handler" | "recording";
-  bindingId?: string;
-  event?: NormalizedKeyEvent;
-};
+  /** Runtime phase that produced the error. */
+  phase: 'handler' | 'recording'
 
+  /** Winning binding identifier when the error came from a handler. */
+  bindingId?: string
+
+  /** Event being processed when the error occurred, when available. */
+  event?: NormalizedKeyEvent
+}
+
+/** Options for temporarily recording shortcut expressions from user input. */
 export type RecordOptions = {
-  eventType?: KeyEventType;
-  timeout?: number;
-  suppressHandlers?: boolean;
-  consumeEvents?: boolean;
-  target?: Document | HTMLElement;
-  onUpdate?: (recording: ShortcutRecording) => void;
-};
+  /**
+   * Keyboard event phase to capture.
+   *
+   * @defaultValue `"keydown"`
+   */
+  eventType?: KeyEventType
 
+  /**
+   * Idle timeout, in milliseconds, before the recording auto-finishes.
+   *
+   * @defaultValue `ShortcutOptions.sequenceTimeout`
+   */
+  timeout?: number
+
+  /**
+   * Prevents existing bindings from firing while recording.
+   *
+   * @defaultValue `true`
+   */
+  suppressHandlers?: boolean
+
+  /**
+   * Calls `preventDefault()` and `stopPropagation()` on captured events.
+   *
+   * @defaultValue `false`
+   */
+  consumeEvents?: boolean
+
+  /**
+   * Recording boundary.
+   *
+   * Defaults to the runtime target and may be narrower or broader than it.
+   */
+  target?: Document | HTMLElement
+
+  /**
+   * Receives the latest snapshot each time a step is captured.
+   *
+   * Errors thrown here are reported through `ShortcutOptions.onError` and do
+   * not stop the recording.
+   */
+  onUpdate?: (recording: ShortcutRecording) => void
+}
+
+/** Active recording session returned by {@link ShortcutRuntime.record}. */
 export type RecordingSession = {
-  stop(): ShortcutRecording;
-  cancel(): void;
-  finished: Promise<ShortcutRecording>;
-};
+  /**
+   * Finishes the recording immediately.
+   *
+   * @returns The final recording snapshot.
+   */
+  stop(): ShortcutRecording
 
+  /**
+   * Cancels the recording.
+   *
+   * The `finished` promise rejects with an `AbortError`.
+   */
+  cancel(): void
+
+  /** Resolves when recording finishes or rejects when it is cancelled. */
+  finished: Promise<ShortcutRecording>
+}
+
+/** Immutable snapshot of a recorded shortcut expression. */
 export type ShortcutRecording = {
-  steps: readonly string[];
-  expression: string;
-  eventType: KeyEventType;
-};
+  /** Canonical expressions for each recorded step. */
+  steps: readonly string[]
 
+  /** `steps` joined with spaces. */
+  expression: string
+
+  /** Event phase that was recorded. */
+  eventType: KeyEventType
+}
+
+/**
+ * Input accepted by {@link ShortcutRuntime.bind}.
+ *
+ * Use the string shorthand for a simple combo plus handler, or the object form
+ * for sequences, scopes, `when` clauses, or dispatch options.
+ */
 export type BindingInput =
   | string
   | {
-      combo?: string;
-      sequence?: string;
-      scope?: string | string[];
-      when?: string;
-      keyEvent?: KeyEventType;
-      priority?: number;
-      editablePolicy?: "inherit" | EditablePolicy;
-      preventDefault?: boolean;
-      stopPropagation?: boolean;
-      allowRepeat?: boolean;
-      handler: ShortcutHandler;
-    };
+      /**
+       * Canonical combo expression such as `"Mod+k"` or `"Shift+ArrowDown"`.
+       *
+       * Exactly one of `combo` or `sequence` is required.
+       */
+      combo?: string
 
+      /**
+       * Whitespace-separated sequence expression such as `"g g"` or `"g h"`.
+       *
+       * Exactly one of `combo` or `sequence` is required.
+       */
+      sequence?: string
+
+      /**
+       * Scope or scopes where the binding is eligible.
+       *
+       * @defaultValue `"root"`
+       */
+      scope?: string | string[]
+
+      /**
+       * Boolean expression evaluated against the runtime context.
+       *
+       * A falsy result prevents dispatch.
+       */
+      when?: string
+
+      /**
+       * Keyboard event phase that must match this binding.
+       *
+       * @defaultValue `"keydown"`
+       */
+      keyEvent?: KeyEventType
+
+      /**
+       * Higher numbers win before lower numbers when multiple bindings match.
+       *
+       * @defaultValue `0`
+       */
+      priority?: number
+
+      /**
+       * Binding-specific editable-target policy.
+       *
+       * Use `"inherit"` to keep the runtime default.
+       *
+       * @defaultValue `"inherit"`
+       */
+      editablePolicy?: 'inherit' | EditablePolicy
+
+      /**
+       * Calls `preventDefault()` when this binding wins.
+       *
+       * @defaultValue `false`
+       */
+      preventDefault?: boolean
+
+      /**
+       * Calls `stopPropagation()` when this binding wins.
+       *
+       * @defaultValue `false`
+       */
+      stopPropagation?: boolean
+
+      /**
+       * Allows repeated `keydown` events to match while a key is held.
+       *
+       * @defaultValue `false`
+       */
+      allowRepeat?: boolean
+
+      /** Handler invoked when the binding wins dispatch. */
+      handler: ShortcutHandler
+    }
+
+/** Normalized keyboard event shape exposed by handlers, traces, and errors. */
 export type NormalizedKeyEvent = {
-  type: KeyEventType;
-  key: string;
-  code: string;
+  /** Normalized event phase. */
+  type: KeyEventType
+
+  /** Canonical key name used for matching, such as `"k"` or `"Escape"`. */
+  key: string
+
+  /** Browser `KeyboardEvent.code` value. */
+  code: string
+
+  /** Modifier state captured from the native event. */
   modifiers: {
-    alt: boolean;
-    ctrl: boolean;
-    meta: boolean;
-    shift: boolean;
-  };
-  repeat: boolean;
-  composing: boolean;
-  target: EventTarget | null;
-  nativeEvent: KeyboardEvent;
-};
+    alt: boolean
+    ctrl: boolean
+    meta: boolean
+    shift: boolean
+  }
 
+  /** Whether the browser marked the native event as a repeat. */
+  repeat: boolean
+
+  /** Whether the event was emitted while IME composition was active. */
+  composing: boolean
+
+  /** Original event target. */
+  target: EventTarget | null
+
+  /** Original `KeyboardEvent`. */
+  nativeEvent: KeyboardEvent
+}
+
+/** Snapshot of a registered binding. */
 export type BindingSnapshot = {
-  id: string;
-  type: "combo" | "sequence";
-  expression: string;
-  scopes: readonly string[];
-  priority: number;
-  keyEvent: KeyEventType;
-  whenSource?: string;
-};
+  /** Generated identifier for the binding. */
+  id: string
 
+  /** Binding shape used by dispatch. */
+  type: 'combo' | 'sequence'
+
+  /** Canonical combo or sequence expression. */
+  expression: string
+
+  /** Scopes where the binding is eligible. */
+  scopes: readonly string[]
+
+  /** Priority used for conflict resolution. */
+  priority: number
+
+  /** Keyboard phase matched by this binding. */
+  keyEvent: KeyEventType
+
+  /** Original `when` source, when present. */
+  whenSource?: string
+}
+
+/** Snapshot of an in-progress sequence match. */
 export type SequenceSnapshot = {
-  bindingId: string;
-  matchedScope: string;
-  stepIndex: number;
-  expiresAt: number;
-};
+  /** Binding identifier that owns this state. */
+  bindingId: string
 
+  /** Active scope that matched the sequence so far. */
+  matchedScope: string
+
+  /** Zero-based index of the next step that must match. */
+  stepIndex: number
+
+  /** Epoch time, in milliseconds, when this sequence state expires. */
+  expiresAt: number
+}
+
+/** Result of evaluating a `when` clause during tracing. */
 export type WhenTrace = {
-  source: string;
-  result: boolean;
-  error?: Error;
-};
+  /** Original `when` source. */
+  source: string
 
+  /** Boolean result after evaluation. */
+  result: boolean
+
+  /** Evaluation error, when the clause threw and was treated as `false`. */
+  error?: Error
+}
+
+/** Per-binding trace entry returned by {@link ShortcutRuntime.explain}. */
 export type CandidateTrace = {
-  bindingId: string;
-  matchedScope?: string;
-  matcherMatched: boolean;
-  when?: WhenTrace;
+  /** Binding identifier being evaluated. */
+  bindingId: string
+
+  /** Scope that matched before later rejection, when one existed. */
+  matchedScope?: string
+
+  /** Whether the combo or sequence matcher itself matched. */
+  matcherMatched: boolean
+
+  /** `when`-clause result when one was evaluated. */
+  when?: WhenTrace
+
+  /** Reason the candidate did not win dispatch. */
   rejectedBy?:
-    | "boundary"
-    | "recording"
-    | "paused"
-    | "editable-policy"
-    | "scope"
-    | "matcher"
-    | "when"
-    | "conflict";
-};
+    | 'boundary'
+    | 'recording'
+    | 'paused'
+    | 'editable-policy'
+    | 'scope'
+    | 'matcher'
+    | 'when'
+    | 'conflict'
+}
 
+/** Full trace for a single keyboard event evaluation. */
 export type EvaluationTrace = {
-  event: NormalizedKeyEvent;
-  candidates: CandidateTrace[];
-  winner?: string;
-};
+  /** Normalized event that was evaluated. */
+  event: NormalizedKeyEvent
 
+  /** Trace entries for each registered binding. */
+  candidates: CandidateTrace[]
+
+  /** Winning binding identifier, when one matched. */
+  winner?: string
+}
+
+/** Runtime API returned by {@link createShortcuts}. */
 export type ShortcutRuntime = {
-  bind(input: BindingInput, handler?: ShortcutHandler): BindingHandle;
-  unbind(binding: BindingHandle | string): boolean;
-  pause(scope?: string): void;
-  resume(scope?: string): void;
-  record(options?: RecordOptions): RecordingSession;
-  setContext(path: string, value: unknown): void;
-  getContext(path: string): unknown;
-  deleteContext(path: string): boolean;
-  batchContext(update: Record<string, unknown>): void;
-  getBindings(): readonly BindingSnapshot[];
-  getActiveSequences(): readonly SequenceSnapshot[];
-  explain(event: KeyboardEvent): EvaluationTrace;
-  dispose(): void;
-};
+  /**
+   * Registers a combo or sequence binding.
+   *
+   * @param input Binding shorthand or full binding descriptor.
+   * @param handler Handler used with the string shorthand.
+   * @returns A handle that can later remove the binding.
+   * @throws When the runtime is disposed or the binding definition is invalid.
+   */
+  bind(input: BindingInput, handler?: ShortcutHandler): BindingHandle
+
+  /**
+   * Removes a binding.
+   *
+   * @returns `true` when the binding existed and was removed.
+   */
+  unbind(binding: BindingHandle | string): boolean
+
+  /**
+   * Pauses dispatch.
+   *
+   * When `scope` is omitted, all scopes pause. Pause calls are reference-counted
+   * and should be balanced with `resume`.
+   */
+  pause(scope?: string): void
+
+  /**
+   * Resumes dispatch after a matching {@link pause} call.
+   *
+   * When `scope` is omitted, it resumes global pauses.
+   */
+  resume(scope?: string): void
+
+  /**
+   * Starts recording a shortcut expression.
+   *
+   * Only one recording session may be active at a time.
+   *
+   * @throws When the runtime is disposed or another recording session is active.
+   */
+  record(options?: RecordOptions): RecordingSession
+
+  /**
+   * Sets a user context value at a dotted path.
+   *
+   * Reserved top-level namespaces are `context`, `event`, `scope`, and
+   * `runtime`.
+   */
+  setContext(path: string, value: unknown): void
+
+  /** Reads a user context value from a dotted path. */
+  getContext(path: string): unknown
+
+  /**
+   * Deletes a user context value from a dotted path.
+   *
+   * @returns `true` when a value was removed.
+   */
+  deleteContext(path: string): boolean
+
+  /** Applies multiple dotted-path context updates in one pass. */
+  batchContext(update: Record<string, unknown>): void
+
+  /** Returns a snapshot of all registered bindings in insertion order. */
+  getBindings(): readonly BindingSnapshot[]
+
+  /** Returns non-expired sequence states. */
+  getActiveSequences(): readonly SequenceSnapshot[]
+
+  /**
+   * Explains how the runtime would evaluate a keyboard event.
+   *
+   * This does not mutate runtime state or invoke handlers.
+   */
+  explain(event: KeyboardEvent): EvaluationTrace
+
+  /**
+   * Removes listeners, clears state, and rejects any active recording.
+   *
+   * Safe to call more than once.
+   */
+  dispose(): void
+}

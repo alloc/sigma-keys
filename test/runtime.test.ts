@@ -1,286 +1,286 @@
-import { createShortcuts } from "../src/index";
+import { createShortcuts } from '../src/index'
 
 function keydown(target: EventTarget, init: KeyboardEventInit & { key: string }): KeyboardEvent {
-  const event = new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init });
-  target.dispatchEvent(event);
-  return event;
+  const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+  target.dispatchEvent(event)
+  return event
 }
 
 function keyup(target: EventTarget, init: KeyboardEventInit & { key: string }): KeyboardEvent {
-  const event = new KeyboardEvent("keyup", { bubbles: true, cancelable: true, ...init });
-  target.dispatchEvent(event);
-  return event;
+  const event = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, ...init })
+  target.dispatchEvent(event)
+  return event
 }
 
-describe("powerkeys", () => {
+describe('powerkeys', () => {
   afterEach(() => {
-    document.body.innerHTML = "";
-  });
+    document.body.innerHTML = ''
+  })
 
-  it("binds and dispatches a basic combo", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('binds and dispatches a basic combo', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
-    const shortcuts = createShortcuts({ target: host });
-    shortcuts.bind("Ctrl+k", () => calls.push("palette"));
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    shortcuts.bind('Ctrl+k', () => calls.push('palette'))
 
-    keydown(host, { key: "k", ctrlKey: true, code: "KeyK" });
+    keydown(host, { key: 'k', ctrlKey: true, code: 'KeyK' })
 
-    expect(calls).toEqual(["palette"]);
-    shortcuts.dispose();
-  });
+    expect(calls).toEqual(['palette'])
+    shortcuts.dispose()
+  })
 
-  it("evaluates when clauses against nested context keys", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('evaluates when clauses against nested context keys', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
-    const shortcuts = createShortcuts({ target: host });
-    shortcuts.setContext("editor.focus", true);
-    shortcuts.setContext("editor.hasSelection", false);
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    shortcuts.setContext('editor.focus', true)
+    shortcuts.setContext('editor.hasSelection', false)
 
     shortcuts.bind({
-      combo: "c",
-      when: "editor.focus && editor.hasSelection",
-      handler: () => calls.push("copy"),
-    });
+      combo: 'c',
+      when: 'editor.focus && editor.hasSelection',
+      handler: () => calls.push('copy'),
+    })
 
-    keydown(host, { key: "c", code: "KeyC" });
-    expect(calls).toEqual([]);
+    keydown(host, { key: 'c', code: 'KeyC' })
+    expect(calls).toEqual([])
 
-    shortcuts.setContext("editor.hasSelection", true);
-    keydown(host, { key: "c", code: "KeyC" });
-    expect(calls).toEqual(["copy"]);
-    shortcuts.dispose();
-  });
+    shortcuts.setContext('editor.hasSelection', true)
+    keydown(host, { key: 'c', code: 'KeyC' })
+    expect(calls).toEqual(['copy'])
+    shortcuts.dispose()
+  })
 
-  it("resolves scope precedence through getActiveScopes", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('resolves scope precedence through getActiveScopes', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
+    const calls: string[] = []
     const shortcuts = createShortcuts({
       target: host,
-      getActiveScopes: () => ["modal", "editor"],
-    });
+      getActiveScopes: () => ['modal', 'editor'],
+    })
 
-    shortcuts.bind({ combo: "Escape", scope: "editor", handler: () => calls.push("editor") });
-    shortcuts.bind({ combo: "Escape", scope: "modal", handler: () => calls.push("modal") });
+    shortcuts.bind({ combo: 'Escape', scope: 'editor', handler: () => calls.push('editor') })
+    shortcuts.bind({ combo: 'Escape', scope: 'modal', handler: () => calls.push('modal') })
 
-    keydown(host, { key: "Escape", code: "Escape" });
+    keydown(host, { key: 'Escape', code: 'Escape' })
 
-    expect(calls).toEqual(["modal"]);
-    shortcuts.dispose();
-  });
+    expect(calls).toEqual(['modal'])
+    shortcuts.dispose()
+  })
 
-  it("supports overlapping sequences with shared prefixes", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('supports overlapping sequences with shared prefixes', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
-    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 1000 });
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 1000 })
 
-    shortcuts.bind({ sequence: "g g l", handler: () => calls.push("ggl") });
-    shortcuts.bind({ sequence: "g g o", handler: () => calls.push("ggo") });
+    shortcuts.bind({ sequence: 'g g l', handler: () => calls.push('ggl') })
+    shortcuts.bind({ sequence: 'g g o', handler: () => calls.push('ggo') })
 
-    keydown(host, { key: "g", code: "KeyG" });
-    keydown(host, { key: "g", code: "KeyG" });
-    keydown(host, { key: "o", code: "KeyO" });
+    keydown(host, { key: 'g', code: 'KeyG' })
+    keydown(host, { key: 'g', code: 'KeyG' })
+    keydown(host, { key: 'o', code: 'KeyO' })
 
-    expect(calls).toEqual(["ggo"]);
-    shortcuts.dispose();
-  });
+    expect(calls).toEqual(['ggo'])
+    shortcuts.dispose()
+  })
 
-  it("pauses a scope and prevents dispatch", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('pauses a scope and prevents dispatch', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
+    const calls: string[] = []
     const shortcuts = createShortcuts({
       target: host,
-      getActiveScopes: () => ["editor"],
-    });
+      getActiveScopes: () => ['editor'],
+    })
 
-    shortcuts.bind({ combo: "Escape", scope: "editor", handler: () => calls.push("editor") });
-    shortcuts.pause("editor");
-    keydown(host, { key: "Escape", code: "Escape" });
-    expect(calls).toEqual([]);
+    shortcuts.bind({ combo: 'Escape', scope: 'editor', handler: () => calls.push('editor') })
+    shortcuts.pause('editor')
+    keydown(host, { key: 'Escape', code: 'Escape' })
+    expect(calls).toEqual([])
 
-    shortcuts.resume("editor");
-    keydown(host, { key: "Escape", code: "Escape" });
-    expect(calls).toEqual(["editor"]);
-    shortcuts.dispose();
-  });
+    shortcuts.resume('editor')
+    keydown(host, { key: 'Escape', code: 'Escape' })
+    expect(calls).toEqual(['editor'])
+    shortcuts.dispose()
+  })
 
-  it("records shortcuts while suppressing handlers", async () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('records shortcuts while suppressing handlers', async () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
-    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 });
-    shortcuts.bind("Meta+k", () => calls.push("handler"));
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 })
+    shortcuts.bind('Meta+k', () => calls.push('handler'))
 
-    const session = shortcuts.record({ suppressHandlers: true, timeout: 10 });
+    const session = shortcuts.record({ suppressHandlers: true, timeout: 10 })
 
-    keydown(host, { key: "k", metaKey: true, code: "KeyK" });
-    keydown(host, { key: "c", code: "KeyC" });
+    keydown(host, { key: 'k', metaKey: true, code: 'KeyK' })
+    keydown(host, { key: 'c', code: 'KeyC' })
 
-    const recording = await session.finished;
+    const recording = await session.finished
 
-    expect(calls).toEqual([]);
-    expect(recording.steps).toEqual(["Meta+k", "c"]);
-    expect(recording.expression).toBe("Meta+k c");
-    shortcuts.dispose();
-  });
+    expect(calls).toEqual([])
+    expect(recording.steps).toEqual(['Meta+k', 'c'])
+    expect(recording.expression).toBe('Meta+k c')
+    shortcuts.dispose()
+  })
 
-  it("emits live recording snapshots as steps are captured", async () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('emits live recording snapshots as steps are captured', async () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const updates: string[] = [];
-    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 });
+    const updates: string[] = []
+    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 })
     const session = shortcuts.record({
       suppressHandlers: true,
       timeout: 10,
       onUpdate: (recording) => updates.push(recording.expression),
-    });
+    })
 
-    keydown(host, { key: "k", metaKey: true, code: "KeyK" });
-    keydown(host, { key: "c", code: "KeyC" });
+    keydown(host, { key: 'k', metaKey: true, code: 'KeyK' })
+    keydown(host, { key: 'c', code: 'KeyC' })
 
-    await session.finished;
+    await session.finished
 
-    expect(updates).toEqual(["Meta+k", "Meta+k c"]);
-    shortcuts.dispose();
-  });
+    expect(updates).toEqual(['Meta+k', 'Meta+k c'])
+    shortcuts.dispose()
+  })
 
-  it("auto-finishes idle recordings after timeout", async () => {
-    vi.useFakeTimers();
+  it('auto-finishes idle recordings after timeout', async () => {
+    vi.useFakeTimers()
     try {
-      const host = document.createElement("div");
-      document.body.appendChild(host);
+      const host = document.createElement('div')
+      document.body.appendChild(host)
 
-      const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 });
-      const session = shortcuts.record({ timeout: 10 });
+      const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 })
+      const session = shortcuts.record({ timeout: 10 })
 
-      await vi.advanceTimersByTimeAsync(10);
+      await vi.advanceTimersByTimeAsync(10)
 
       await expect(session.finished).resolves.toEqual({
         steps: [],
-        expression: "",
-        eventType: "keydown",
-      });
-      shortcuts.dispose();
+        expression: '',
+        eventType: 'keydown',
+      })
+      shortcuts.dispose()
     } finally {
-      vi.useRealTimers();
+      vi.useRealTimers()
     }
-  });
+  })
 
-  it("continues recording if onUpdate throws", async () => {
-    vi.useFakeTimers();
+  it('continues recording if onUpdate throws', async () => {
+    vi.useFakeTimers()
     try {
-      const host = document.createElement("div");
-      document.body.appendChild(host);
+      const host = document.createElement('div')
+      document.body.appendChild(host)
 
-      const errors: string[] = [];
+      const errors: string[] = []
       const shortcuts = createShortcuts({
         target: host,
         sequenceTimeout: 30,
         onError: (error, info) => {
-          errors.push(`${info.phase}:${error instanceof Error ? error.message : String(error)}`);
+          errors.push(`${info.phase}:${error instanceof Error ? error.message : String(error)}`)
         },
-      });
+      })
 
       const session = shortcuts.record({
         timeout: 10,
         onUpdate: () => {
-          throw new Error("boom");
+          throw new Error('boom')
         },
-      });
+      })
 
-      keydown(host, { key: "k", code: "KeyK" });
-      await vi.advanceTimersByTimeAsync(10);
+      keydown(host, { key: 'k', code: 'KeyK' })
+      await vi.advanceTimersByTimeAsync(10)
 
       await expect(session.finished).resolves.toEqual({
-        steps: ["k"],
-        expression: "k",
-        eventType: "keydown",
-      });
-      expect(errors).toEqual(["recording:boom"]);
-      shortcuts.dispose();
+        steps: ['k'],
+        expression: 'k',
+        eventType: 'keydown',
+      })
+      expect(errors).toEqual(['recording:boom'])
+      shortcuts.dispose()
     } finally {
-      vi.useRealTimers();
+      vi.useRealTimers()
     }
-  });
+  })
 
-  it("ignores modifier-only presses while recording", async () => {
-    vi.useFakeTimers();
+  it('ignores modifier-only presses while recording', async () => {
+    vi.useFakeTimers()
     try {
-      const host = document.createElement("div");
-      document.body.appendChild(host);
+      const host = document.createElement('div')
+      document.body.appendChild(host)
 
-      const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 });
-      const session = shortcuts.record({ suppressHandlers: true, timeout: 10 });
+      const shortcuts = createShortcuts({ target: host, sequenceTimeout: 30 })
+      const session = shortcuts.record({ suppressHandlers: true, timeout: 10 })
 
-      keydown(host, { key: "Control", code: "ControlLeft", ctrlKey: true });
-      keydown(host, { key: "k", code: "KeyK", ctrlKey: true });
-      await vi.advanceTimersByTimeAsync(10);
+      keydown(host, { key: 'Control', code: 'ControlLeft', ctrlKey: true })
+      keydown(host, { key: 'k', code: 'KeyK', ctrlKey: true })
+      await vi.advanceTimersByTimeAsync(10)
 
       await expect(session.finished).resolves.toEqual({
-        steps: ["Ctrl+k"],
-        expression: "Ctrl+k",
-        eventType: "keydown",
-      });
-      shortcuts.dispose();
+        steps: ['Ctrl+k'],
+        expression: 'Ctrl+k',
+        eventType: 'keydown',
+      })
+      shortcuts.dispose()
     } finally {
-      vi.useRealTimers();
+      vi.useRealTimers()
     }
-  });
+  })
 
-  it("explains why a binding did not match", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
+  it('explains why a binding did not match', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
 
-    const shortcuts = createShortcuts({ target: host });
-    shortcuts.setContext("editor.focus", true);
-    shortcuts.setContext("editor.hasSelection", false);
+    const shortcuts = createShortcuts({ target: host })
+    shortcuts.setContext('editor.focus', true)
+    shortcuts.setContext('editor.hasSelection', false)
     shortcuts.bind({
-      combo: "c",
-      when: "editor.focus && editor.hasSelection",
+      combo: 'c',
+      when: 'editor.focus && editor.hasSelection',
       handler: () => {},
-    });
+    })
 
-    const event = new KeyboardEvent("keydown", { key: "c", code: "KeyC", bubbles: true });
-    Object.defineProperty(event, "target", { value: host });
+    const event = new KeyboardEvent('keydown', { key: 'c', code: 'KeyC', bubbles: true })
+    Object.defineProperty(event, 'target', { value: host })
 
-    const trace = shortcuts.explain(event);
+    const trace = shortcuts.explain(event)
 
-    expect(trace.winner).toBeUndefined();
-    expect(trace.candidates[0]?.when?.result).toBe(false);
-    expect(trace.candidates[0]?.rejectedBy).toBe("when");
-    shortcuts.dispose();
-  });
+    expect(trace.winner).toBeUndefined()
+    expect(trace.candidates[0]?.when?.result).toBe(false)
+    expect(trace.candidates[0]?.rejectedBy).toBe('when')
+    shortcuts.dispose()
+  })
 
-  it("respects editable-target policy overrides", () => {
-    const host = document.createElement("div");
-    const input = document.createElement("input");
-    host.appendChild(input);
-    document.body.appendChild(host);
+  it('respects editable-target policy overrides', () => {
+    const host = document.createElement('div')
+    const input = document.createElement('input')
+    host.appendChild(input)
+    document.body.appendChild(host)
 
-    const calls: string[] = [];
-    const shortcuts = createShortcuts({ target: host });
-    shortcuts.bind({ combo: "k", handler: () => calls.push("blocked") });
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    shortcuts.bind({ combo: 'k', handler: () => calls.push('blocked') })
     shortcuts.bind({
-      combo: "Meta+k",
-      editablePolicy: "allow-if-meta",
-      handler: () => calls.push("allowed"),
-    });
+      combo: 'Meta+k',
+      editablePolicy: 'allow-if-meta',
+      handler: () => calls.push('allowed'),
+    })
 
-    keydown(input, { key: "k", code: "KeyK" });
-    keydown(input, { key: "k", code: "KeyK", metaKey: true });
+    keydown(input, { key: 'k', code: 'KeyK' })
+    keydown(input, { key: 'k', code: 'KeyK', metaKey: true })
 
-    expect(calls).toEqual(["allowed"]);
-    shortcuts.dispose();
-  });
-});
+    expect(calls).toEqual(['allowed'])
+    shortcuts.dispose()
+  })
+})

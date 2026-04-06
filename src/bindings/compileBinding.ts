@@ -1,39 +1,39 @@
-import { compileCombo } from "./parseCombo";
-import { compileSequence } from "./parseSequence";
-import { compileWhenClause } from "../when/compileWhenClause";
-import type { BindingInput, EditablePolicy, ShortcutHandler } from "../types/public";
-import type { BindingRecord, Platform } from "../types/internal";
+import { compileCombo } from './parseCombo'
+import { compileSequence } from './parseSequence'
+import { compileWhenClause } from '../when/compileWhenClause'
+import type { BindingInput, EditablePolicy, ShortcutHandler } from '../types/public'
+import type { BindingRecord, Platform } from '../types/internal'
 
 type CompileBindingOptions = {
-  input: BindingInput;
-  handler?: ShortcutHandler;
-  id: string;
-  order: number;
-  defaultEditablePolicy: EditablePolicy;
-  platform: Platform;
-};
+  input: BindingInput
+  handler?: ShortcutHandler
+  id: string
+  order: number
+  defaultEditablePolicy: EditablePolicy
+  platform: Platform
+}
 
 export function compileBinding(options: CompileBindingOptions): BindingRecord {
-  const record = normalizeBindingInput(options.input, options.handler);
-  const scopes = normalizeScopes(record.scope);
+  const record = normalizeBindingInput(options.input, options.handler)
+  const scopes = normalizeScopes(record.scope)
   const editablePolicy =
-    record.editablePolicy === "inherit" || record.editablePolicy == null
+    record.editablePolicy === 'inherit' || record.editablePolicy == null
       ? options.defaultEditablePolicy
-      : record.editablePolicy;
+      : record.editablePolicy
 
-  const when = record.when ? compileWhenClause(record.when) : undefined;
+  const when = record.when ? compileWhenClause(record.when) : undefined
   const steps = record.sequence
     ? compileSequence(record.sequence, options.platform)
-    : [compileCombo(record.combo!, options.platform)];
+    : [compileCombo(record.combo!, options.platform)]
 
   return {
     id: options.id,
     order: options.order,
-    type: record.sequence ? "sequence" : "combo",
+    type: record.sequence ? 'sequence' : 'combo',
     expression: record.sequence
-      ? steps.map((step) => step.expression).join(" ")
+      ? steps.map((step) => step.expression).join(' ')
       : steps[0]!.expression,
-    keyEvent: record.keyEvent ?? "keydown",
+    keyEvent: record.keyEvent ?? 'keydown',
     scopes,
     priority: record.priority ?? 0,
     editablePolicy,
@@ -44,34 +44,34 @@ export function compileBinding(options: CompileBindingOptions): BindingRecord {
     whenSource: record.when,
     when,
     handler: record.handler,
-  };
+  }
 }
 
 function normalizeBindingInput(
   input: BindingInput,
   handler?: ShortcutHandler,
 ): Exclude<BindingInput, string> {
-  if (typeof input === "string") {
+  if (typeof input === 'string') {
     if (!handler) {
-      throw new TypeError("A handler is required when binding from a string");
+      throw new TypeError('A handler is required when binding from a string')
     }
-    return { combo: input, handler };
+    return { combo: input, handler }
   }
 
   if (handler) {
-    throw new TypeError("Do not pass both an inline handler and a second handler argument");
+    throw new TypeError('Do not pass both an inline handler and a second handler argument')
   }
   if (!input.handler) {
-    throw new TypeError("Binding handler is required");
+    throw new TypeError('Binding handler is required')
   }
   if (!!input.combo === !!input.sequence) {
-    throw new TypeError("Exactly one of combo or sequence is required");
+    throw new TypeError('Exactly one of combo or sequence is required')
   }
-  return input;
+  return input
 }
 
 function normalizeScopes(scope: string | string[] | undefined): readonly string[] {
-  const scopes = scope == null ? ["root"] : Array.isArray(scope) ? scope : [scope];
-  const next = [...new Set(scopes.filter(Boolean))];
-  return next.length > 0 ? next : ["root"];
+  const scopes = scope == null ? ['root'] : Array.isArray(scope) ? scope : [scope]
+  const next = [...new Set(scopes.filter(Boolean))]
+  return next.length > 0 ? next : ['root']
 }

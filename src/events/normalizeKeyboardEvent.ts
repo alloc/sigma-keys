@@ -1,9 +1,9 @@
-import { canonicalizePrimaryKey } from "../bindings/canonicalizeStep";
-import type { NormalizedKeyEvent } from "../types/public";
+import { canonicalizePrimaryKey } from '../bindings/canonicalizeStep'
+import type { NormalizedKeyEvent } from '../types/public'
 
 export function normalizeKeyboardEvent(event: KeyboardEvent): NormalizedKeyEvent {
   return {
-    type: event.type === "keyup" ? "keyup" : "keydown",
+    type: event.type === 'keyup' ? 'keyup' : 'keydown',
     key: canonicalizePrimaryKey(event.key),
     code: event.code,
     modifiers: {
@@ -16,5 +16,5 @@ export function normalizeKeyboardEvent(event: KeyboardEvent): NormalizedKeyEvent
     composing: event.isComposing,
     target: event.target,
     nativeEvent: event,
-  };
+  }
 }

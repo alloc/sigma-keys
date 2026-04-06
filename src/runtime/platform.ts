@@ -1,20 +1,20 @@
-import type { Platform } from "../types/internal";
+import type { Platform } from '../types/internal'
 
 export function detectPlatform(): Platform {
-  const platform = typeof navigator !== "undefined" ? navigator.platform.toLowerCase() : "";
+  const platform = typeof navigator !== 'undefined' ? navigator.platform.toLowerCase() : ''
   if (
-    platform.includes("mac") ||
-    platform.includes("iphone") ||
-    platform.includes("ipad") ||
-    platform.includes("ipod")
+    platform.includes('mac') ||
+    platform.includes('iphone') ||
+    platform.includes('ipad') ||
+    platform.includes('ipod')
   ) {
-    return "mac";
+    return 'mac'
   }
-  if (platform.includes("win")) {
-    return "windows";
+  if (platform.includes('win')) {
+    return 'windows'
   }
-  if (platform.includes("linux")) {
-    return "linux";
+  if (platform.includes('linux')) {
+    return 'linux'
   }
-  return "other";
+  return 'other'
 }

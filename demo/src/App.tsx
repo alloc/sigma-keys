@@ -3,17 +3,17 @@ import {
   type EvaluationTrace,
   type RecordingSession,
   type ShortcutRuntime,
-} from "powerkeys";
-import type { ComponentChildren, JSX, RefObject } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
-import styles from "./App.module.css";
+} from 'powerkeys'
+import type { ComponentChildren, JSX, RefObject } from 'preact'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import styles from './App.module.css'
 
-type DemoTab = "basic" | "scope" | "sequence" | "recording";
+type DemoTab = 'basic' | 'scope' | 'sequence' | 'recording'
 
-type LogSetter = (entry: string) => void;
+type LogSetter = (entry: string) => void
 
 export function App() {
-  const [tab, setTab] = useState<DemoTab>("basic");
+  const [tab, setTab] = useState<DemoTab>('basic')
 
   return (
     <main class={styles.app}>
@@ -37,79 +37,79 @@ export function App() {
             <TabButton tab={tab} name="recording" label="Recording" onSelect={setTab} />
           </div>
 
-          {tab === "basic" && <BasicDemo />}
-          {tab === "scope" && <ScopeWhenDemo />}
-          {tab === "sequence" && <SequenceDemo />}
-          {tab === "recording" && <RecordingDemo />}
+          {tab === 'basic' && <BasicDemo />}
+          {tab === 'scope' && <ScopeWhenDemo />}
+          {tab === 'sequence' && <SequenceDemo />}
+          {tab === 'recording' && <RecordingDemo />}
         </div>
       </div>
     </main>
-  );
+  )
 }
 
 function TabButton(props: {
-  tab: DemoTab;
-  name: DemoTab;
-  label: string;
-  onSelect: (tab: DemoTab) => void;
+  tab: DemoTab
+  name: DemoTab
+  label: string
+  onSelect: (tab: DemoTab) => void
 }) {
-  const active = props.tab === props.name;
+  const active = props.tab === props.name
   return (
     <button
       type="button"
-      class={`${styles.tab} ${active ? styles.tabActive : ""}`}
+      class={`${styles.tab} ${active ? styles.tabActive : ''}`}
       onClick={() => props.onSelect(props.name)}
     >
       {props.label}
     </button>
-  );
+  )
 }
 
 function BasicDemo() {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [toggleCount, setToggleCount] = useState(0);
-  const [logs, setLogs] = useLogState();
+  const stageRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [toggleCount, setToggleCount] = useState(0)
+  const [logs, setLogs] = useLogState()
 
   useEffect(() => {
-    const stage = stageRef.current;
-    const input = inputRef.current;
-    if (!stage || !input) return;
+    const stage = stageRef.current
+    const input = inputRef.current
+    if (!stage || !input) return
 
-    const runtime = createShortcuts({ target: stage });
+    const runtime = createShortcuts({ target: stage })
     const toggle = () => {
-      setToggleCount((count) => count + 1);
-      setLogs("toggled the demo action");
-    };
+      setToggleCount((count) => count + 1)
+      setLogs('toggled the demo action')
+    }
 
-    runtime.bind("Meta+k", toggle);
+    runtime.bind('Meta+k', toggle)
     runtime.bind({
-      combo: "Meta+/",
-      editablePolicy: "allow-if-meta",
+      combo: 'Meta+/',
+      editablePolicy: 'allow-if-meta',
       handler: () =>
         setLogs(
-          "Meta+/ is expected to fire even with the input focused because editable targets do not block it",
+          'Meta+/ is expected to fire even with the input focused because editable targets do not block it',
         ),
-    });
+    })
     runtime.bind({
-      combo: "Escape",
-      editablePolicy: "allow-in-editable",
+      combo: 'Escape',
+      editablePolicy: 'allow-in-editable',
       handler: ({ event }) => {
         if (event.target instanceof HTMLInputElement) {
-          stage.focus();
-          setLogs("Escape blurred the focused input");
+          stage.focus()
+          setLogs('Escape blurred the focused input')
         } else {
-          setToggleCount(0);
-          setLogs("Reset the toggle count");
+          setToggleCount(0)
+          setLogs('Reset the toggle count')
         }
       },
-    });
+    })
 
-    stage.focus();
+    stage.focus()
     return () => {
-      runtime.dispose();
-    };
-  }, []);
+      runtime.dispose()
+    }
+  }, [])
 
   return (
     <Panel
@@ -131,84 +131,84 @@ function BasicDemo() {
         </div>
         <div class={styles.statusGrid}>
           <StatusCard label="Toggle count" value={String(toggleCount)} />
-          <StatusCard label="Latest event" value={logs[0] ?? "No shortcut fired yet"} />
+          <StatusCard label="Latest event" value={logs[0] ?? 'No shortcut fired yet'} />
         </div>
       </FocusableStage>
     </Panel>
-  );
+  )
 }
 
 function ScopeWhenDemo() {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const runtimeRef = useRef<ShortcutRuntime | null>(null);
-  const activeScopesRef = useRef<string[]>(["editor"]);
-  const pausedRef = useRef(false);
-  const [hasSelection, setHasSelection] = useState(false);
-  const [readOnly, setReadOnly] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [logs, setLogs] = useLogState();
+  const stageRef = useRef<HTMLDivElement>(null)
+  const runtimeRef = useRef<ShortcutRuntime | null>(null)
+  const activeScopesRef = useRef<string[]>(['editor'])
+  const pausedRef = useRef(false)
+  const [hasSelection, setHasSelection] = useState(false)
+  const [readOnly, setReadOnly] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [logs, setLogs] = useLogState()
   const [trace, setTrace] = useState<string>(
-    "Press a key inside the stage to see the latest evaluation trace.",
-  );
+    'Press a key inside the stage to see the latest evaluation trace.',
+  )
 
-  activeScopesRef.current = modalOpen ? ["modal", "editor"] : ["editor"];
+  activeScopesRef.current = modalOpen ? ['modal', 'editor'] : ['editor']
 
   useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
+    const stage = stageRef.current
+    if (!stage) return
 
     const runtime = createShortcuts({
       target: stage,
       getActiveScopes: () => activeScopesRef.current,
-    });
-    runtimeRef.current = runtime;
+    })
+    runtimeRef.current = runtime
 
     runtime.bind({
-      combo: "Escape",
-      scope: "editor",
-      handler: () => setLogs("editor handled Escape"),
-    });
+      combo: 'Escape',
+      scope: 'editor',
+      handler: () => setLogs('editor handled Escape'),
+    })
     runtime.bind({
-      combo: "Escape",
-      scope: "modal",
+      combo: 'Escape',
+      scope: 'modal',
       priority: 10,
-      handler: () => setLogs("modal handled Escape"),
-    });
+      handler: () => setLogs('modal handled Escape'),
+    })
     runtime.bind({
-      combo: "c",
-      scope: "editor",
-      when: "editor.hasSelection && !editor.readOnly",
-      handler: () => setLogs("copy action passed its when-clause"),
-    });
+      combo: 'c',
+      scope: 'editor',
+      when: 'editor.hasSelection && !editor.readOnly',
+      handler: () => setLogs('copy action passed its when-clause'),
+    })
 
     const onKeyDown = (event: KeyboardEvent) => {
-      setTrace(formatTrace(runtime.explain(event)));
-    };
-    stage.addEventListener("keydown", onKeyDown);
-    stage.focus();
+      setTrace(formatTrace(runtime.explain(event)))
+    }
+    stage.addEventListener('keydown', onKeyDown)
+    stage.focus()
 
     return () => {
-      stage.removeEventListener("keydown", onKeyDown);
-      runtime.dispose();
-    };
-  }, []);
-
-  useEffect(() => {
-    runtimeRef.current?.setContext("editor.hasSelection", hasSelection);
-    runtimeRef.current?.setContext("editor.readOnly", readOnly);
-  }, [hasSelection, readOnly]);
-
-  useEffect(() => {
-    const runtime = runtimeRef.current;
-    if (!runtime) return;
-    if (pausedRef.current === readOnly) return;
-    pausedRef.current = readOnly;
-    if (readOnly) {
-      runtime.pause("editor");
-      return;
+      stage.removeEventListener('keydown', onKeyDown)
+      runtime.dispose()
     }
-    runtime.resume("editor");
-  }, [readOnly]);
+  }, [])
+
+  useEffect(() => {
+    runtimeRef.current?.setContext('editor.hasSelection', hasSelection)
+    runtimeRef.current?.setContext('editor.readOnly', readOnly)
+  }, [hasSelection, readOnly])
+
+  useEffect(() => {
+    const runtime = runtimeRef.current
+    if (!runtime) return
+    if (pausedRef.current === readOnly) return
+    pausedRef.current = readOnly
+    if (readOnly) {
+      runtime.pause('editor')
+      return
+    }
+    runtime.resume('editor')
+  }, [readOnly])
 
   return (
     <Panel
@@ -247,49 +247,49 @@ function ScopeWhenDemo() {
           </label>
         </div>
         <div class={styles.statusGrid}>
-          <StatusCard label="Active scopes" value={activeScopesRef.current.join(" → ")} />
-          <StatusCard label="Latest event" value={logs[0] ?? "No shortcut fired yet"} />
+          <StatusCard label="Active scopes" value={activeScopesRef.current.join(' → ')} />
+          <StatusCard label="Latest event" value={logs[0] ?? 'No shortcut fired yet'} />
         </div>
         <pre class={styles.trace}>{trace}</pre>
       </FocusableStage>
     </Panel>
-  );
+  )
 }
 
 function SequenceDemo() {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [logs, setLogs] = useLogState();
-  const [sequenceState, setSequenceState] = useState("No active sequence state");
+  const stageRef = useRef<HTMLDivElement>(null)
+  const [logs, setLogs] = useLogState()
+  const [sequenceState, setSequenceState] = useState('No active sequence state')
 
   useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
+    const stage = stageRef.current
+    if (!stage) return
 
-    const runtime = createShortcuts({ target: stage, sequenceTimeout: 1400 });
+    const runtime = createShortcuts({ target: stage, sequenceTimeout: 1400 })
 
-    runtime.bind({ sequence: "g i", handler: () => setLogs("opened the inbox sequence") });
+    runtime.bind({ sequence: 'g i', handler: () => setLogs('opened the inbox sequence') })
     runtime.bind({
-      sequence: "g g o",
-      handler: () => setLogs("completed the longer shared-prefix sequence"),
-    });
+      sequence: 'g g o',
+      handler: () => setLogs('completed the longer shared-prefix sequence'),
+    })
 
     const onKeyDown = () => {
-      const states = runtime.getActiveSequences();
+      const states = runtime.getActiveSequences()
       setSequenceState(
         states.length > 0
-          ? states.map((state) => `${state.bindingId}@${state.stepIndex}`).join(", ")
-          : "No active sequence state",
-      );
-    };
+          ? states.map((state) => `${state.bindingId}@${state.stepIndex}`).join(', ')
+          : 'No active sequence state',
+      )
+    }
 
-    stage.addEventListener("keydown", onKeyDown);
-    stage.focus();
+    stage.addEventListener('keydown', onKeyDown)
+    stage.focus()
 
     return () => {
-      stage.removeEventListener("keydown", onKeyDown);
-      runtime.dispose();
-    };
-  }, []);
+      stage.removeEventListener('keydown', onKeyDown)
+      runtime.dispose()
+    }
+  }, [])
 
   return (
     <Panel
@@ -303,7 +303,7 @@ function SequenceDemo() {
         </div>
         <div class={styles.statusGrid}>
           <StatusCard label="Sequence machine" value={sequenceState} />
-          <StatusCard label="Latest event" value={logs[0] ?? "No sequence completed yet"} />
+          <StatusCard label="Latest event" value={logs[0] ?? 'No sequence completed yet'} />
         </div>
         <ol class={styles.log}>
           {logs.map((entry) => (
@@ -312,144 +312,142 @@ function SequenceDemo() {
         </ol>
       </FocusableStage>
     </Panel>
-  );
+  )
 }
 
 function RecordingDemo() {
-  const stageRef = useRef<HTMLDivElement>(null);
-  const runtimeRef = useRef<ShortcutRuntime | null>(null);
-  const sessionRef = useRef<RecordingSession | null>(null);
-  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearOnCancelRef = useRef(false);
-  const groupedStepsRef = useRef<string[][]>([]);
-  const pendingSequenceRef = useRef(false);
-  const lastStepCountRef = useRef(0);
-  const [shortcutCount, setShortcutCount] = useState(0);
-  const [logs, setLogs] = useLogState();
-  const [recording, setRecording] = useState<string>("Nothing recorded yet");
-  const [capturedSteps, setCapturedSteps] = useState<string>("No keys captured yet");
-  const [recordingState, setRecordingState] = useState<string>("Inactive");
-  const [isRecording, setIsRecording] = useState(false);
+  const stageRef = useRef<HTMLDivElement>(null)
+  const runtimeRef = useRef<ShortcutRuntime | null>(null)
+  const sessionRef = useRef<RecordingSession | null>(null)
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const clearOnCancelRef = useRef(false)
+  const groupedStepsRef = useRef<string[][]>([])
+  const pendingSequenceRef = useRef(false)
+  const lastStepCountRef = useRef(0)
+  const [shortcutCount, setShortcutCount] = useState(0)
+  const [logs, setLogs] = useLogState()
+  const [recording, setRecording] = useState<string>('Nothing recorded yet')
+  const [capturedSteps, setCapturedSteps] = useState<string>('No keys captured yet')
+  const [recordingState, setRecordingState] = useState<string>('Inactive')
+  const [isRecording, setIsRecording] = useState(false)
 
   useEffect(() => {
-    const stage = stageRef.current;
-    if (!stage) return;
+    const stage = stageRef.current
+    if (!stage) return
 
-    const runtime = createShortcuts({ target: stage, sequenceTimeout: 1200 });
-    runtimeRef.current = runtime;
+    const runtime = createShortcuts({ target: stage, sequenceTimeout: 1200 })
+    runtimeRef.current = runtime
 
     const bump = () => {
-      setShortcutCount((count) => count + 1);
-      setLogs("regular shortcut fired");
-    };
+      setShortcutCount((count) => count + 1)
+      setLogs('regular shortcut fired')
+    }
 
-    runtime.bind("Meta+/", bump);
+    runtime.bind('Meta+/', bump)
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !sessionRef.current) {
-        return;
+      if (event.key !== 'Escape' || !sessionRef.current) {
+        return
       }
-      event.preventDefault();
-      event.stopPropagation();
-      cancelRecording();
-    };
+      event.preventDefault()
+      event.stopPropagation()
+      cancelRecording()
+    }
 
-    stage.focus();
-    stage.addEventListener("keydown", onKeyDown, true);
+    stage.focus()
+    stage.addEventListener('keydown', onKeyDown, true)
     return () => {
-      stage.removeEventListener("keydown", onKeyDown, true);
+      stage.removeEventListener('keydown', onKeyDown, true)
       if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
+        clearTimeout(inactivityTimerRef.current)
       }
-      sessionRef.current?.cancel();
-      runtime.dispose();
-    };
-  }, []);
+      sessionRef.current?.cancel()
+      runtime.dispose()
+    }
+  }, [])
 
   async function startRecording() {
-    const runtime = runtimeRef.current;
-    const stage = stageRef.current;
-    if (!runtime || !stage || sessionRef.current) return;
+    const runtime = runtimeRef.current
+    const stage = stageRef.current
+    if (!runtime || !stage || sessionRef.current) return
 
-    groupedStepsRef.current = [];
-    pendingSequenceRef.current = false;
-    lastStepCountRef.current = 0;
-    clearOnCancelRef.current = false;
-    setIsRecording(true);
-    setRecording("Recording… click Stop when you are done.");
-    setCapturedSteps("Waiting for input…");
-    setRecordingState("Listening for the first sequence");
-    stage.focus();
+    groupedStepsRef.current = []
+    pendingSequenceRef.current = false
+    lastStepCountRef.current = 0
+    clearOnCancelRef.current = false
+    setIsRecording(true)
+    setRecording('Recording… click Stop when you are done.')
+    setCapturedSteps('Waiting for input…')
+    setRecordingState('Listening for the first sequence')
+    stage.focus()
 
     try {
       const session = runtime.record({
         timeout: 2_147_483_647,
         suppressHandlers: true,
         onUpdate: (snapshot) => {
-          const nextStep = snapshot.steps[lastStepCountRef.current];
+          const nextStep = snapshot.steps[lastStepCountRef.current]
           if (!nextStep) {
-            return;
+            return
           }
           if (pendingSequenceRef.current || groupedStepsRef.current.length === 0) {
-            groupedStepsRef.current = [...groupedStepsRef.current, [nextStep]];
-            pendingSequenceRef.current = false;
+            groupedStepsRef.current = [...groupedStepsRef.current, [nextStep]]
+            pendingSequenceRef.current = false
           } else {
-            const lastGroup = groupedStepsRef.current[groupedStepsRef.current.length - 1]!;
+            const lastGroup = groupedStepsRef.current[groupedStepsRef.current.length - 1]!
             groupedStepsRef.current = [
               ...groupedStepsRef.current.slice(0, -1),
               [...lastGroup, nextStep],
-            ];
+            ]
           }
-          lastStepCountRef.current = snapshot.steps.length;
-          setCapturedSteps(groupedStepsRef.current.map((steps) => steps.join(" ")).join("  •  "));
-          setRecordingState("Recording current sequence");
+          lastStepCountRef.current = snapshot.steps.length
+          setCapturedSteps(groupedStepsRef.current.map((steps) => steps.join(' ')).join('  •  '))
+          setRecordingState('Recording current sequence')
           if (inactivityTimerRef.current) {
-            clearTimeout(inactivityTimerRef.current);
+            clearTimeout(inactivityTimerRef.current)
           }
           inactivityTimerRef.current = setTimeout(() => {
-            pendingSequenceRef.current = true;
-            setRecordingState("Idle: next key starts a new sequence");
-          }, 1200);
+            pendingSequenceRef.current = true
+            setRecordingState('Idle: next key starts a new sequence')
+          }, 1200)
         },
-      });
-      sessionRef.current = session;
-      const result = await session.finished;
-      const groupedExpression = groupedStepsRef.current
-        .map((steps) => steps.join(" "))
-        .join("  • ");
-      setRecording(groupedExpression || result.expression || "No keys captured");
-      setRecordingState("Stopped");
-      setLogs(`recorded ${groupedExpression || result.expression || "no keys"}`);
+      })
+      sessionRef.current = session
+      const result = await session.finished
+      const groupedExpression = groupedStepsRef.current.map((steps) => steps.join(' ')).join('  • ')
+      setRecording(groupedExpression || result.expression || 'No keys captured')
+      setRecordingState('Stopped')
+      setLogs(`recorded ${groupedExpression || result.expression || 'no keys'}`)
     } catch (error) {
       if (clearOnCancelRef.current) {
-        setRecording("Nothing recorded yet");
-        setCapturedSteps("No keys captured yet");
-        setRecordingState("Cancelled");
-        setLogs("capture cancelled and cleared");
-        return;
+        setRecording('Nothing recorded yet')
+        setCapturedSteps('No keys captured yet')
+        setRecordingState('Cancelled')
+        setLogs('capture cancelled and cleared')
+        return
       }
-      const message = error instanceof Error ? error.name : "Recording failed";
-      setRecording(message);
-      setRecordingState("Inactive");
+      const message = error instanceof Error ? error.name : 'Recording failed'
+      setRecording(message)
+      setRecordingState('Inactive')
     } finally {
-      clearOnCancelRef.current = false;
-      sessionRef.current = null;
+      clearOnCancelRef.current = false
+      sessionRef.current = null
       if (inactivityTimerRef.current) {
-        clearTimeout(inactivityTimerRef.current);
-        inactivityTimerRef.current = null;
+        clearTimeout(inactivityTimerRef.current)
+        inactivityTimerRef.current = null
       }
-      setIsRecording(false);
+      setIsRecording(false)
     }
   }
 
   function stopRecording() {
-    sessionRef.current?.stop();
+    sessionRef.current?.stop()
   }
 
   function cancelRecording() {
-    if (!sessionRef.current) return;
-    clearOnCancelRef.current = true;
-    sessionRef.current.cancel();
+    if (!sessionRef.current) return
+    clearOnCancelRef.current = true
+    sessionRef.current.cancel()
   }
 
   return (
@@ -470,7 +468,7 @@ function RecordingDemo() {
             onClick={startRecording}
             type="button"
           >
-            {isRecording ? "Recording…" : "Start recording"}
+            {isRecording ? 'Recording…' : 'Start recording'}
           </button>
           <button
             class={`${styles.button} ${styles.buttonAlt}`}
@@ -496,7 +494,7 @@ function RecordingDemo() {
         </ol>
       </FocusableStage>
     </Panel>
-  );
+  )
 }
 
 function Panel(props: { title: string; text: string; children: JSX.Element }) {
@@ -508,23 +506,23 @@ function Panel(props: { title: string; text: string; children: JSX.Element }) {
       </header>
       {props.children}
     </section>
-  );
+  )
 }
 
 function FocusableStage(props: {
-  stageRef: RefObject<HTMLDivElement>;
-  children: JSX.Element | JSX.Element[];
+  stageRef: RefObject<HTMLDivElement>
+  children: JSX.Element | JSX.Element[]
 }) {
   return (
     <div class={styles.stage} ref={props.stageRef} tabIndex={0}>
       <span class={styles.stageLabel}>Focusable runtime boundary</span>
       {props.children}
     </div>
-  );
+  )
 }
 
 function Kbd(props: { children: ComponentChildren }) {
-  return <span class={styles.kbd}>{props.children}</span>;
+  return <span class={styles.kbd}>{props.children}</span>
 }
 
 function StatusCard(props: { label: string; value: string }) {
@@ -533,18 +531,18 @@ function StatusCard(props: { label: string; value: string }) {
       <span class={styles.statusLabel}>{props.label}</span>
       <p class={styles.statusValue}>{props.value}</p>
     </div>
-  );
+  )
 }
 
 function useLogState(): [string[], LogSetter] {
-  const [entries, setEntries] = useState<string[]>([]);
+  const [entries, setEntries] = useState<string[]>([])
   return [
     entries,
     (entry) =>
       setEntries((current) =>
         [`${new Date().toLocaleTimeString()}: ${entry}`, ...current].slice(0, 6),
       ),
-  ];
+  ]
 }
 
 function formatTrace(trace: EvaluationTrace): string {
@@ -560,5 +558,5 @@ function formatTrace(trace: EvaluationTrace): string {
     },
     null,
     2,
-  );
+  )
 }

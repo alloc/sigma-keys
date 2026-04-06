@@ -1,5 +1,5 @@
-import type { NormalizedKeyEvent } from "../types/public";
-import type { Platform } from "../types/internal";
+import type { NormalizedKeyEvent } from '../types/public'
+import type { Platform } from '../types/internal'
 
 export function buildWhenContext(
   userContext: Record<string, unknown>,
@@ -30,5 +30,5 @@ export function buildWhenContext(
       recording,
     },
     ...userContext,
-  };
+  }
 }

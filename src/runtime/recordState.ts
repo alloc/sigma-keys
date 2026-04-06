@@ -3,14 +3,14 @@ import type {
   RecordOptions,
   RecordingSession,
   ShortcutRecording,
-} from "../types/public";
-import type { NormalizedKeyEvent, ErrorInfo } from "../types/public";
-import type { RecordingState } from "../types/internal";
-import { parseBindingToken } from "../bindings/canonicalizeStep";
-import { isWithinBoundary } from "../events/isWithinBoundary";
+} from '../types/public'
+import type { NormalizedKeyEvent, ErrorInfo } from '../types/public'
+import type { RecordingState } from '../types/internal'
+import { parseBindingToken } from '../bindings/canonicalizeStep'
+import { isWithinBoundary } from '../events/isWithinBoundary'
 
 export class RecordStateController {
-  private state: RecordingState | null = null;
+  private state: RecordingState | null = null
 
   start(
     runtimeTarget: Document | HTMLElement,
@@ -18,42 +18,42 @@ export class RecordStateController {
     options: RecordOptions | undefined,
   ): RecordingSession {
     if (this.state) {
-      throw new TypeError("A recording session is already active");
+      throw new TypeError('A recording session is already active')
     }
 
-    const eventType = options?.eventType ?? "keydown";
-    const timeout = options?.timeout ?? sequenceTimeout;
-    const suppressHandlers = options?.suppressHandlers ?? true;
-    const consumeEvents = options?.consumeEvents ?? false;
-    const target = options?.target ?? runtimeTarget;
-    const onUpdate = options?.onUpdate;
+    const eventType = options?.eventType ?? 'keydown'
+    const timeout = options?.timeout ?? sequenceTimeout
+    const suppressHandlers = options?.suppressHandlers ?? true
+    const consumeEvents = options?.consumeEvents ?? false
+    const target = options?.target ?? runtimeTarget
+    const onUpdate = options?.onUpdate
 
-    let resolveFinished: ((recording: ShortcutRecording) => void) | null = null;
-    let rejectFinished: ((error: Error) => void) | null = null;
+    let resolveFinished: ((recording: ShortcutRecording) => void) | null = null
+    let rejectFinished: ((error: Error) => void) | null = null
     const finished = new Promise<ShortcutRecording>((resolve, reject) => {
-      resolveFinished = resolve;
-      rejectFinished = reject;
-    });
+      resolveFinished = resolve
+      rejectFinished = reject
+    })
 
     const finish = (recording: ShortcutRecording): void => {
       if (!this.state || this.state.settled) {
-        return;
+        return
       }
-      this.clearTimer(this.state);
-      this.state.settled = true;
-      this.state = null;
-      resolveFinished?.(recording);
-    };
+      this.clearTimer(this.state)
+      this.state.settled = true
+      this.state = null
+      resolveFinished?.(recording)
+    }
 
     const fail = (error: Error): void => {
       if (!this.state || this.state.settled) {
-        return;
+        return
       }
-      this.clearTimer(this.state);
-      this.state.settled = true;
-      this.state = null;
-      rejectFinished?.(error);
-    };
+      this.clearTimer(this.state)
+      this.state.settled = true
+      this.state = null
+      rejectFinished?.(error)
+    }
 
     this.state = {
       eventType,
@@ -67,24 +67,24 @@ export class RecordStateController {
       settled: false,
       finish,
       fail,
-    };
-    this.restartTimer(this.state);
+    }
+    this.restartTimer(this.state)
 
     return {
       stop: () => {
-        const active = this.state;
+        const active = this.state
         if (!active) {
-          return finalizeRecording([], eventType);
+          return finalizeRecording([], eventType)
         }
-        const recording = finalizeRecording(active.steps, eventType);
-        active.finish(recording);
-        return recording;
+        const recording = finalizeRecording(active.steps, eventType)
+        active.finish(recording)
+        return recording
       },
       cancel: () => {
-        this.state?.fail(createAbortError());
+        this.state?.fail(createAbortError())
       },
       finished,
-    };
+    }
   }
 
   handle(
@@ -93,92 +93,92 @@ export class RecordStateController {
     mutate: boolean,
     onError: ((error: unknown, info: ErrorInfo) => void) | undefined,
   ): { intercepted: boolean } {
-    const active = this.state;
+    const active = this.state
     if (!active) {
-      return { intercepted: false };
+      return { intercepted: false }
     }
     if (!isWithinBoundary(active.target, nativeEvent)) {
-      return { intercepted: false };
+      return { intercepted: false }
     }
 
-    const maybeStep = normalized.type === active.eventType ? stepFromEvent(normalized) : null;
-    const captured = maybeStep != null;
+    const maybeStep = normalized.type === active.eventType ? stepFromEvent(normalized) : null
+    const captured = maybeStep != null
 
     if (captured && mutate) {
-      active.steps.push(maybeStep);
-      const recording = finalizeRecording(active.steps, active.eventType);
-      this.restartTimer(active);
+      active.steps.push(maybeStep)
+      const recording = finalizeRecording(active.steps, active.eventType)
+      this.restartTimer(active)
       try {
-        active.onUpdate?.(recording);
+        active.onUpdate?.(recording)
       } catch (error) {
-        onError?.(error, { phase: "recording", event: normalized });
+        onError?.(error, { phase: 'recording', event: normalized })
       }
     }
 
     if (captured && active.consumeEvents && mutate) {
-      nativeEvent.preventDefault();
-      nativeEvent.stopPropagation();
+      nativeEvent.preventDefault()
+      nativeEvent.stopPropagation()
     }
 
-    return { intercepted: active.suppressHandlers };
+    return { intercepted: active.suppressHandlers }
   }
 
   isRecording(): boolean {
-    return this.state != null;
+    return this.state != null
   }
 
   dispose(): void {
     if (!this.state) {
-      return;
+      return
     }
-    this.state.fail(createAbortError());
-    this.state = null;
+    this.state.fail(createAbortError())
+    this.state = null
   }
 
   private restartTimer(active: RecordingState): void {
-    this.clearTimer(active);
+    this.clearTimer(active)
     active.timer = setTimeout(() => {
-      const recording = finalizeRecording(active.steps, active.eventType);
-      active.finish(recording);
-    }, active.timeout);
+      const recording = finalizeRecording(active.steps, active.eventType)
+      active.finish(recording)
+    }, active.timeout)
   }
 
   private clearTimer(active: RecordingState): void {
     if (active.timer) {
-      clearTimeout(active.timer);
-      active.timer = null;
+      clearTimeout(active.timer)
+      active.timer = null
     }
   }
 }
 
 function stepFromEvent(event: NormalizedKeyEvent): string | null {
-  const key = event.key;
-  if (parseBindingToken(key).type === "modifier") {
-    return null;
+  const key = event.key
+  if (parseBindingToken(key).type === 'modifier') {
+    return null
   }
-  const modifiers: string[] = [];
-  if (event.modifiers.ctrl) modifiers.push("Ctrl");
-  if (event.modifiers.meta) modifiers.push("Meta");
-  if (event.modifiers.alt) modifiers.push("Alt");
-  if (event.modifiers.shift) modifiers.push("Shift");
-  return [...modifiers, key].join("+");
+  const modifiers: string[] = []
+  if (event.modifiers.ctrl) modifiers.push('Ctrl')
+  if (event.modifiers.meta) modifiers.push('Meta')
+  if (event.modifiers.alt) modifiers.push('Alt')
+  if (event.modifiers.shift) modifiers.push('Shift')
+  return [...modifiers, key].join('+')
 }
 
 function finalizeRecording(steps: readonly string[], eventType: KeyEventType): ShortcutRecording {
-  const frozenSteps = Object.freeze([...steps]) as readonly string[];
+  const frozenSteps = Object.freeze([...steps]) as readonly string[]
   return Object.freeze({
     steps: frozenSteps,
-    expression: frozenSteps.join(" "),
+    expression: frozenSteps.join(' '),
     eventType,
-  });
+  })
 }
 
 function createAbortError(): Error {
   try {
-    return new DOMException("Recording cancelled", "AbortError");
+    return new DOMException('Recording cancelled', 'AbortError')
   } catch {
-    const error = new Error("Recording cancelled");
-    error.name = "AbortError";
-    return error;
+    const error = new Error('Recording cancelled')
+    error.name = 'AbortError'
+    return error
   }
 }
