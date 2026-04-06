@@ -1,5 +1,5 @@
 export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
+  if (!(target instanceof HTMLElement)) {
     return false;
   }
   const tag = target.tagName.toLowerCase();

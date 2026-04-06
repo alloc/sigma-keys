@@ -43,8 +43,8 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
   let nextBindingOrder = 1;
   let userContext: Record<string, unknown> = {};
 
-  const handleNativeEvent = (event: KeyboardEvent): void => {
-    if (!disposed) {
+  const handleNativeEvent = (event: Event): void => {
+    if (!disposed && event instanceof KeyboardEvent) {
       evaluateKeyboardEvent(event, true);
     }
   };
