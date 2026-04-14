@@ -127,6 +127,21 @@ Debug why a shortcut did not fire
 
 - `explain(event)` to inspect scope, matcher, and `when`-clause decisions
 
+# Recommended Patterns
+
+- Define shared availability once on your own command object with `scope` and `when`.
+- Reuse that same `scope` and `when` when attaching a keyboard shortcut with `bind`.
+- Keep command-palette metadata such as title, subtitle, group, and keywords in your own command model, not in `powerkeys`.
+- Use `setContext` or `batchContext` for transient app state that should affect both shortcuts and external command availability.
+- Use `isAvailable` as a structural check. Extra fields on your command object are ignored.
+
+# Patterns to Avoid
+
+- Do not make external command availability depend on keyboard-event details such as `event.key` or modifier state. `isAvailable` exposes an inert `event` object.
+- Do not use `pause` as a command-palette visibility mechanism. It affects keyboard dispatch only.
+- Do not duplicate the same availability rule in separate shortcut-only and palette-only conditions when one shared `scope` plus `when` clause will do.
+- Do not move palette presentation concerns into `powerkeys`; it owns availability checks, not command registration or menu rendering.
+
 # Invariants and Constraints
 
 - `root` is always active, even when `getActiveScopes` returns nothing.
@@ -173,8 +188,7 @@ Debug why a shortcut did not fire
   - The rule that decides whether a binding may run while focus is inside an
     editable element.
 
-  - **Boundary**
-
+- **Boundary**
   - The document or element passed as `target`, which limits which native events
     the runtime considers.
 

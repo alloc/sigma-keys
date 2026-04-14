@@ -1,5 +1,6 @@
 import { createShortcuts } from '../src/index'
 import { mountBasicShortcuts } from '../examples/basic-usage'
+import { mountCommandAvailability } from '../examples/command-availability'
 import { beginShortcutCapture } from '../examples/record-shortcut'
 import { mountEditorShortcuts } from '../examples/scopes-and-when'
 import { mountNavigationShortcuts } from '../examples/sequences'
@@ -87,6 +88,37 @@ describe('documentation examples', () => {
     syncState({ readOnly: true })
     keydown(host, { key: 'c', code: 'KeyC' })
     expect(calls).toEqual(['editor', 'copy', 'modal'])
+
+    shortcuts.dispose()
+  })
+
+  it('demonstrates external command availability checks', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const state = {
+      modalOpen: false,
+      canRename: false,
+      readOnly: false,
+    }
+    const calls: string[] = []
+    const { shortcuts, getPaletteCommands, syncState } = mountCommandAvailability(host, state, {
+      renameSymbol: () => calls.push('rename'),
+    })
+
+    expect(getPaletteCommands().map((command) => command.id)).toEqual([])
+
+    syncState({ canRename: true })
+    expect(getPaletteCommands().map((command) => command.id)).toEqual(['editor.renameSymbol'])
+
+    keydown(host, { key: 'F2', code: 'F2' })
+    expect(calls).toEqual(['rename'])
+
+    syncState({ readOnly: true })
+    expect(getPaletteCommands().map((command) => command.id)).toEqual([])
+
+    keydown(host, { key: 'F2', code: 'F2' })
+    expect(calls).toEqual(['rename'])
 
     shortcuts.dispose()
   })

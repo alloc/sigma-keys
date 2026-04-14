@@ -195,7 +195,8 @@ export type ShortcutRecording = {
  * Shared availability contract for commands or other external actions.
  *
  * `powerkeys` uses this shape to answer whether something is currently
- * available under the active scopes and runtime context.
+ * available under the active scopes and runtime context. The contract is
+ * structural, so external command objects may include any additional fields.
  */
 export interface RunnableInput {
   /**
@@ -475,7 +476,7 @@ export type ShortcutRuntime = {
    * This evaluates only shared availability concerns such as `scope` and
    * `when`. It ignores keyboard-specific matching and dispatch behavior such as
    * pause state, editable-target policy, repeat handling, and event
-   * consumption.
+   * consumption. The input is structural, so extra fields are ignored.
    *
    * @throws When `when` contains invalid syntax.
    */

@@ -32,6 +32,7 @@ shortcuts.bind({
 
 - Conceptual guide: [docs/context.md](docs/context.md)
 - Runnable examples: [examples/basic-usage.ts](examples/basic-usage.ts),
+  [examples/command-availability.ts](examples/command-availability.ts),
   [examples/scopes-and-when.ts](examples/scopes-and-when.ts),
   [examples/sequences.ts](examples/sequences.ts),
   [examples/record-shortcut.ts](examples/record-shortcut.ts)
