@@ -2,8 +2,9 @@
 
 `powerkeys` is a DOM-bound keyboard shortcut runtime for web applications that
 need more than flat key listeners. It combines combo matching, multi-step
-sequences, scope-aware conflict resolution, `when`-clause gating, and shortcut
-recording behind a single runtime created with `createShortcuts`.
+sequences, scope-aware conflict resolution, `when`-clause gating, shortcut
+recording, and external availability checks behind a single runtime created
+with `createShortcuts`.
 
 The library is designed around one rule: keyboard behavior should be described
 as declarative bindings, while transient application state such as modal
@@ -57,6 +58,9 @@ Runtime Context
   `scope`, `runtime`, and `context`.
 - User context is also spread onto the top level of the evaluation object, so
   `editor.hasSelection` is directly readable in a `when` clause.
+- `isAvailable` uses the same scope and `when` machinery for external command
+  models. Its `event` namespace is present but inert, with missing keys set to
+  `undefined` and modifier booleans set to `false`.
 
 Recording
 
@@ -94,6 +98,12 @@ Gate a shortcut on app state
 - `setContext("editor.hasSelection", true)`
 - `bind({ combo: "c", when: "editor.hasSelection", handler })`
 
+Reuse the same availability rules in an external command palette
+
+- Define your own command object with `scope` and `when`
+- `isAvailable(command)` before rendering or invoking it
+- Reuse the same `scope` and `when` in `bind({ ..., handler })` when attaching a shortcut
+
 Register multi-step navigation
 
 - `bind({ sequence: "g g", handler })`
@@ -104,6 +114,8 @@ Temporarily disable shortcuts
 
 - `pause(scope)` and `resume(scope)`
 - Omit the scope to pause or resume the whole runtime
+- `pause` affects keyboard dispatch only. `isAvailable` still evaluates against
+  the raw active scopes from `getActiveScopes`.
 
 Let users choose their own shortcut
 
@@ -131,10 +143,12 @@ Debug why a shortcut did not fire
 # Error Model
 
 - Binding-definition errors throw synchronously during `bind`.
+- Invalid `when` syntax also throws synchronously during `isAvailable`.
 - Handler errors are sent to `onError` when provided; otherwise they are
   rethrown asynchronously.
 - `when`-clause errors do not throw through dispatch. They cause that binding to
   fail its `when` check, and the error appears in `explain`.
+- `when`-clause evaluation errors inside `isAvailable` return `false`.
 - Recording `onUpdate` errors are reported through `onError` and do not cancel
   the active recording.
 - Cancelling a recording rejects `RecordingSession.finished` with an
@@ -168,4 +182,5 @@ Debug why a shortcut did not fire
 
 - Global shortcuts outside the current DOM boundary
 - Full command-palette UI state or menu rendering
+- Command registration or command identifiers owned by `powerkeys`
 - Framework-specific hooks or adapters

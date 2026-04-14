@@ -3,7 +3,7 @@ import type { Platform } from '../types/internal'
 
 export function buildWhenContext(
   userContext: Record<string, unknown>,
-  normalized: NormalizedKeyEvent,
+  normalized: NormalizedKeyEvent | undefined,
   activeScopes: readonly string[],
   matchedScope: string,
   platform: Platform,
@@ -12,14 +12,14 @@ export function buildWhenContext(
   return {
     context: userContext,
     event: {
-      key: normalized.key,
-      code: normalized.code,
-      repeat: normalized.repeat,
-      composing: normalized.composing,
-      alt: normalized.modifiers.alt,
-      ctrl: normalized.modifiers.ctrl,
-      meta: normalized.modifiers.meta,
-      shift: normalized.modifiers.shift,
+      key: normalized?.key,
+      code: normalized?.code,
+      repeat: normalized?.repeat ?? false,
+      composing: normalized?.composing ?? false,
+      alt: normalized?.modifiers.alt ?? false,
+      ctrl: normalized?.modifiers.ctrl ?? false,
+      meta: normalized?.modifiers.meta ?? false,
+      shift: normalized?.modifiers.shift ?? false,
     },
     scope: {
       active: [...activeScopes],

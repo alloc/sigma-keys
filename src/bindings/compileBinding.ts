@@ -70,7 +70,7 @@ function normalizeBindingInput(
   return input
 }
 
-function normalizeScopes(scope: string | string[] | undefined): readonly string[] {
+export function normalizeScopes(scope: string | readonly string[] | undefined): readonly string[] {
   const scopes = scope == null ? ['root'] : Array.isArray(scope) ? scope : [scope]
   const next = [...new Set(scopes.filter(Boolean))]
   return next.length > 0 ? next : ['root']

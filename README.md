@@ -4,7 +4,7 @@
 
 `powerkeys` brings VS Code-style keyboard shortcuts to modern web apps. It handles
 scoped bindings, multi-step sequences, `when` clauses, editable-target policies,
-and shortcut recording in one small runtime.
+shortcut recording, and external availability checks in one small runtime.
 
 ## Installation
 

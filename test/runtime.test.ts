@@ -74,6 +74,52 @@ describe('powerkeys', () => {
     shortcuts.dispose()
   })
 
+  it('checks external availability against active scopes and when clauses', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({
+      target: host,
+      getActiveScopes: () => ['modal', 'editor'],
+    })
+    shortcuts.setContext('editor.canCopy', true)
+
+    expect(
+      shortcuts.isAvailable({
+        scope: ['sidebar', 'modal'] as const,
+        when: 'scope.matched === "modal" && editor.canCopy',
+      }),
+    ).toBe(true)
+    expect(
+      shortcuts.isAvailable({
+        scope: 'sidebar',
+        when: 'editor.canCopy',
+      }),
+    ).toBe(false)
+
+    shortcuts.dispose()
+  })
+
+  it('provides inert event values for external availability checks', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({ target: host })
+
+    expect(
+      shortcuts.isAvailable({
+        when: 'event.key == null && !event.ctrl && !event.meta && !event.repeat',
+      }),
+    ).toBe(true)
+    expect(
+      shortcuts.isAvailable({
+        when: 'event.ctrl',
+      }),
+    ).toBe(false)
+
+    shortcuts.dispose()
+  })
+
   it('supports overlapping sequences with shared prefixes', () => {
     const host = document.createElement('div')
     document.body.appendChild(host)
@@ -110,6 +156,58 @@ describe('powerkeys', () => {
     shortcuts.resume('editor')
     keydown(host, { key: 'Escape', code: 'Escape' })
     expect(calls).toEqual(['editor'])
+    shortcuts.dispose()
+  })
+
+  it('ignores paused scopes when checking external availability', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({
+      target: host,
+      getActiveScopes: () => ['editor'],
+    })
+
+    shortcuts.pause('editor')
+
+    expect(
+      shortcuts.isAvailable({
+        scope: 'editor',
+        when: 'true',
+      }),
+    ).toBe(true)
+
+    shortcuts.dispose()
+  })
+
+  it('treats when evaluation errors as unavailable for external checks', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({ target: host })
+    shortcuts.setContext('editor', null)
+
+    expect(
+      shortcuts.isAvailable({
+        when: 'editor.canCopy',
+      }),
+    ).toBe(false)
+
+    shortcuts.dispose()
+  })
+
+  it('throws on invalid when syntax for external availability checks', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({ target: host })
+
+    expect(() =>
+      shortcuts.isAvailable({
+        when: '(',
+      }),
+    ).toThrow()
+
     shortcuts.dispose()
   })
 

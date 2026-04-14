@@ -192,6 +192,28 @@ export type ShortcutRecording = {
 }
 
 /**
+ * Shared availability contract for commands or other external actions.
+ *
+ * `powerkeys` uses this shape to answer whether something is currently
+ * available under the active scopes and runtime context.
+ */
+export interface RunnableInput {
+  /**
+   * Scope or scopes where this item is eligible.
+   *
+   * @defaultValue `"root"`
+   */
+  scope?: string | readonly string[]
+
+  /**
+   * Boolean expression evaluated against the runtime context.
+   *
+   * A falsy result means "not available".
+   */
+  when?: string
+}
+
+/**
  * Input accepted by {@link ShortcutRuntime.bind}.
  *
  * Use the string shorthand for a simple combo plus handler, or the object form
@@ -199,7 +221,7 @@ export type ShortcutRecording = {
  */
 export type BindingInput =
   | string
-  | {
+  | (RunnableInput & {
       /**
        * Canonical combo expression such as `"Mod+k"` or `"Shift+ArrowDown"`.
        *
@@ -213,20 +235,6 @@ export type BindingInput =
        * Exactly one of `combo` or `sequence` is required.
        */
       sequence?: string
-
-      /**
-       * Scope or scopes where the binding is eligible.
-       *
-       * @defaultValue `"root"`
-       */
-      scope?: string | string[]
-
-      /**
-       * Boolean expression evaluated against the runtime context.
-       *
-       * A falsy result prevents dispatch.
-       */
-      when?: string
 
       /**
        * Keyboard event phase that must match this binding.
@@ -274,7 +282,7 @@ export type BindingInput =
 
       /** Handler invoked when the binding wins dispatch. */
       handler: ShortcutHandler
-    }
+    })
 
 /** Normalized keyboard event shape exposed by handlers, traces, and errors. */
 export type NormalizedKeyEvent = {
@@ -460,6 +468,18 @@ export type ShortcutRuntime = {
 
   /** Applies multiple dotted-path context updates in one pass. */
   batchContext(update: Record<string, unknown>): void
+
+  /**
+   * Returns whether an external action is currently available.
+   *
+   * This evaluates only shared availability concerns such as `scope` and
+   * `when`. It ignores keyboard-specific matching and dispatch behavior such as
+   * pause state, editable-target policy, repeat handling, and event
+   * consumption.
+   *
+   * @throws When `when` contains invalid syntax.
+   */
+  isAvailable(input: RunnableInput): boolean
 
   /** Returns a snapshot of all registered bindings in insertion order. */
   getBindings(): readonly BindingSnapshot[]

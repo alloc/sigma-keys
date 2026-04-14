@@ -1,4 +1,4 @@
-import { compileBinding } from '../bindings/compileBinding'
+import { compileBinding, normalizeScopes } from '../bindings/compileBinding'
 import { isWithinBoundary } from '../events/isWithinBoundary'
 import { normalizeKeyboardEvent } from '../events/normalizeKeyboardEvent'
 import { chooseWinner, evaluateEditablePolicy, applyConsumption, matchesStep } from './dispatch'
@@ -8,6 +8,7 @@ import { detectPlatform } from './platform'
 import { resolveActiveScopes, pickMatchedScope } from '../scopes/resolveActiveScopes'
 import { SequenceMachine } from '../sequences/SequenceMachine'
 import { buildWhenContext } from '../when/buildWhenContext'
+import { compileWhenClause } from '../when/compileWhenClause'
 import type {
   BindingHandle,
   BindingInput,
@@ -17,6 +18,7 @@ import type {
   EvaluationTrace,
   RecordOptions,
   RecordingSession,
+  RunnableInput,
   ShortcutHandler,
   ShortcutOptions,
   ShortcutRuntime,
@@ -55,6 +57,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
 
   const bindings = new Map<string, BindingRecord>()
   const bindingOrder: string[] = []
+  const whenCache = new Map<string, ReturnType<typeof compileWhenClause>>()
   const pauseState = new PauseState()
   const recordState = new RecordStateController()
   const sequenceMachine = new SequenceMachine()
@@ -172,6 +175,33 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     userContext = nextContext
   }
 
+  function isAvailable(input: RunnableInput): boolean {
+    const activeScopes = resolveActiveScopes(getActiveScopes)
+    const matchedScope = pickMatchedScope(normalizeScopes(input.scope), activeScopes)
+    if (!matchedScope) {
+      return false
+    }
+    if (!input.when) {
+      return true
+    }
+
+    const context = buildWhenContext(
+      cloneContextTree(userContext),
+      undefined,
+      activeScopes,
+      matchedScope,
+      platform,
+      recordState.isRecording(),
+    )
+    const when = getCompiledWhenClause(input.when)
+
+    try {
+      return when.evaluate(context)
+    } catch {
+      return false
+    }
+  }
+
   function getBindings(): readonly BindingSnapshot[] {
     return getBindingRecords().map((binding) => ({
       id: binding.id,
@@ -204,6 +234,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     sequenceMachine.clear()
     pauseState.clear()
     recordState.dispose()
+    whenCache.clear()
     userContext = {}
   }
 
@@ -422,6 +453,15 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
       .filter((binding): binding is BindingRecord => !!binding)
   }
 
+  function getCompiledWhenClause(source: string) {
+    let compiled = whenCache.get(source)
+    if (!compiled) {
+      compiled = compileWhenClause(source)
+      whenCache.set(source, compiled)
+    }
+    return compiled
+  }
+
   function ensureNotDisposed(): void {
     if (disposed) {
       throw new TypeError('Shortcut runtime is disposed')
@@ -438,6 +478,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     getContext,
     deleteContext,
     batchContext,
+    isAvailable,
     getBindings,
     getActiveSequences,
     explain,
