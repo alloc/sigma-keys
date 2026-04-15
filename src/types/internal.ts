@@ -25,7 +25,8 @@ export type CompiledWhenClause = {
 
 export type BindingRecord = {
   id: string
-  order: number
+  slotOrder: number
+  entryOrder: number
   type: 'combo' | 'sequence'
   expression: string
   keyEvent: KeyEventType

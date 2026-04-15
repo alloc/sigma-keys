@@ -1,14 +1,15 @@
 import { compileCombo } from './parseCombo'
 import { compileSequence } from './parseSequence'
 import { compileWhenClause } from '../when/compileWhenClause'
-import type { BindingInput, EditablePolicy, ShortcutHandler } from '../types/public'
+import type { BindingInput, BindingSpec, EditablePolicy, ShortcutHandler } from '../types/public'
 import type { BindingRecord, Platform } from '../types/internal'
 
 type CompileBindingOptions = {
   input: BindingInput
   handler?: ShortcutHandler
   id: string
-  order: number
+  slotOrder: number
+  entryOrder: number
   defaultEditablePolicy: EditablePolicy
   platform: Platform
 }
@@ -28,7 +29,8 @@ export function compileBinding(options: CompileBindingOptions): BindingRecord {
 
   return {
     id: options.id,
-    order: options.order,
+    slotOrder: options.slotOrder,
+    entryOrder: options.entryOrder,
     type: record.sequence ? 'sequence' : 'combo',
     expression: record.sequence
       ? steps.map((step) => step.expression).join(' ')
@@ -50,7 +52,7 @@ export function compileBinding(options: CompileBindingOptions): BindingRecord {
 function normalizeBindingInput(
   input: BindingInput,
   handler?: ShortcutHandler,
-): Exclude<BindingInput, string> {
+): BindingSpec {
   if (typeof input === 'string') {
     if (!handler) {
       throw new TypeError('A handler is required when binding from a string')

@@ -381,4 +381,146 @@ describe('powerkeys', () => {
     expect(calls).toEqual(['allowed'])
     shortcuts.dispose()
   })
+
+  it('replaces binding-set contents atomically', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    const bindingSet = shortcuts.createBindingSet()
+
+    bindingSet.replace([{ combo: 'Meta+k', handler: () => calls.push('original') }])
+
+    keydown(host, { key: 'k', metaKey: true, code: 'KeyK' })
+    expect(calls).toEqual(['original'])
+
+    expect(() =>
+      bindingSet.replace([
+        { combo: 'Meta+l', handler: () => calls.push('next') },
+        { handler: () => calls.push('invalid') },
+      ]),
+    ).toThrow()
+
+    keydown(host, { key: 'k', metaKey: true, code: 'KeyK' })
+    keydown(host, { key: 'l', metaKey: true, code: 'KeyL' })
+
+    expect(calls).toEqual(['original', 'original'])
+    expect(bindingSet.getBindings().map((binding) => binding.expression)).toEqual(['Meta+k'])
+    shortcuts.dispose()
+  })
+
+  it('clears and disposes binding sets', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    const bindingSet = shortcuts.createBindingSet()
+
+    bindingSet.replace([{ combo: 'Meta+k', handler: () => calls.push('active') }])
+    bindingSet.clear()
+
+    keydown(host, { key: 'k', metaKey: true, code: 'KeyK' })
+    expect(calls).toEqual([])
+    expect(bindingSet.getBindings()).toEqual([])
+
+    bindingSet.replace([{ combo: 'Meta+l', handler: () => calls.push('next') }])
+    bindingSet.dispose()
+
+    keydown(host, { key: 'l', metaKey: true, code: 'KeyL' })
+    expect(calls).toEqual([])
+    expect(bindingSet.getBindings()).toEqual([])
+    expect(() => bindingSet.replace([{ combo: 'Meta+/', handler: () => {} }])).toThrow(
+      'Binding set is disposed',
+    )
+    shortcuts.dispose()
+  })
+
+  it('preserves direct-binding precedence across repeated binding-set replacement', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    const bindingSet = shortcuts.createBindingSet()
+
+    shortcuts.bind({ combo: 'x', handler: () => calls.push('direct') })
+    bindingSet.replace([{ combo: 'x', handler: () => calls.push('set-first') }])
+
+    keydown(host, { key: 'x', code: 'KeyX' })
+    expect(calls).toEqual(['direct'])
+
+    calls.length = 0
+    bindingSet.replace([{ combo: 'x', handler: () => calls.push('set-second') }])
+    keydown(host, { key: 'x', code: 'KeyX' })
+
+    expect(calls).toEqual(['direct'])
+    expect(shortcuts.getBindings().map((binding) => binding.expression)).toEqual(['x', 'x'])
+    shortcuts.dispose()
+  })
+
+  it('preserves binding-set precedence across repeated replacement', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const calls: string[] = []
+    const shortcuts = createShortcuts({ target: host })
+    const firstSet = shortcuts.createBindingSet()
+    const secondSet = shortcuts.createBindingSet()
+
+    secondSet.replace([{ combo: 'x', handler: () => calls.push('second') }])
+    firstSet.replace([{ combo: 'x', handler: () => calls.push('first') }])
+
+    keydown(host, { key: 'x', code: 'KeyX' })
+    expect(calls).toEqual(['second'])
+
+    calls.length = 0
+    firstSet.replace([{ combo: 'x', handler: () => calls.push('first-again') }])
+    keydown(host, { key: 'x', code: 'KeyX' })
+
+    expect(calls).toEqual(['second'])
+    shortcuts.dispose()
+  })
+
+  it('drops active sequence state when replacing a binding set', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({ target: host, sequenceTimeout: 1000 })
+    const bindingSet = shortcuts.createBindingSet()
+
+    bindingSet.replace([{ sequence: 'g g', handler: () => {} }])
+
+    keydown(host, { key: 'g', code: 'KeyG' })
+    expect(shortcuts.getActiveSequences()).toHaveLength(1)
+
+    bindingSet.replace([{ combo: 'x', handler: () => {} }])
+
+    expect(shortcuts.getActiveSequences()).toEqual([])
+    shortcuts.dispose()
+  })
+
+  it('returns binding snapshots in stable runtime order', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({ target: host })
+    const earlySet = shortcuts.createBindingSet()
+    const lateSet = shortcuts.createBindingSet()
+
+    lateSet.replace([{ combo: 'z', handler: () => {} }])
+    earlySet.replace([
+      { combo: 'x', handler: () => {} },
+      { combo: 'y', handler: () => {} },
+    ])
+
+    expect(earlySet.getBindings().map((binding) => binding.expression)).toEqual(['x', 'y'])
+    expect(shortcuts.getBindings().map((binding) => binding.expression)).toEqual(['x', 'y', 'z'])
+
+    earlySet.replace([{ combo: 'w', handler: () => {} }])
+
+    expect(shortcuts.getBindings().map((binding) => binding.expression)).toEqual(['w', 'z'])
+    shortcuts.dispose()
+  })
 })

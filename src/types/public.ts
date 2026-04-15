@@ -215,75 +215,80 @@ export interface RunnableInput {
 }
 
 /**
+ * Object-form binding definition accepted by {@link ShortcutRuntime.bind} and
+ * {@link BindingSet.replace}.
+ */
+export type BindingSpec = RunnableInput & {
+  /**
+   * Canonical combo expression such as `"Mod+k"` or `"Shift+ArrowDown"`.
+   *
+   * Exactly one of `combo` or `sequence` is required.
+   */
+  combo?: string
+
+  /**
+   * Whitespace-separated sequence expression such as `"g g"` or `"g h"`.
+   *
+   * Exactly one of `combo` or `sequence` is required.
+   */
+  sequence?: string
+
+  /**
+   * Keyboard event phase that must match this binding.
+   *
+   * @defaultValue `"keydown"`
+   */
+  keyEvent?: KeyEventType
+
+  /**
+   * Higher numbers win before lower numbers when multiple bindings match.
+   *
+   * @defaultValue `0`
+   */
+  priority?: number
+
+  /**
+   * Binding-specific editable-target policy.
+   *
+   * Use `"inherit"` to keep the runtime default.
+   *
+   * @defaultValue `"inherit"`
+   */
+  editablePolicy?: 'inherit' | EditablePolicy
+
+  /**
+   * Calls `preventDefault()` when this binding wins.
+   *
+   * @defaultValue `false`
+   */
+  preventDefault?: boolean
+
+  /**
+   * Calls `stopPropagation()` when this binding wins.
+   *
+   * @defaultValue `false`
+   */
+  stopPropagation?: boolean
+
+  /**
+   * Allows repeated `keydown` events to match while a key is held.
+   *
+   * @defaultValue `false`
+   */
+  allowRepeat?: boolean
+
+  /** Handler invoked when the binding wins dispatch. */
+  handler: ShortcutHandler
+}
+
+/**
  * Input accepted by {@link ShortcutRuntime.bind}.
  *
- * Use the string shorthand for a simple combo plus handler, or the object form
- * for sequences, scopes, `when` clauses, or dispatch options.
+ * Use the string shorthand for a simple combo plus handler, or
+ * {@link BindingSpec} for sequences, scopes, `when` clauses, or dispatch
+ * options.
  */
-export type BindingInput =
-  | string
-  | (RunnableInput & {
-      /**
-       * Canonical combo expression such as `"Mod+k"` or `"Shift+ArrowDown"`.
-       *
-       * Exactly one of `combo` or `sequence` is required.
-       */
-      combo?: string
-
-      /**
-       * Whitespace-separated sequence expression such as `"g g"` or `"g h"`.
-       *
-       * Exactly one of `combo` or `sequence` is required.
-       */
-      sequence?: string
-
-      /**
-       * Keyboard event phase that must match this binding.
-       *
-       * @defaultValue `"keydown"`
-       */
-      keyEvent?: KeyEventType
-
-      /**
-       * Higher numbers win before lower numbers when multiple bindings match.
-       *
-       * @defaultValue `0`
-       */
-      priority?: number
-
-      /**
-       * Binding-specific editable-target policy.
-       *
-       * Use `"inherit"` to keep the runtime default.
-       *
-       * @defaultValue `"inherit"`
-       */
-      editablePolicy?: 'inherit' | EditablePolicy
-
-      /**
-       * Calls `preventDefault()` when this binding wins.
-       *
-       * @defaultValue `false`
-       */
-      preventDefault?: boolean
-
-      /**
-       * Calls `stopPropagation()` when this binding wins.
-       *
-       * @defaultValue `false`
-       */
-      stopPropagation?: boolean
-
-      /**
-       * Allows repeated `keydown` events to match while a key is held.
-       *
-       * @defaultValue `false`
-       */
-      allowRepeat?: boolean
-
-      /** Handler invoked when the binding wins dispatch. */
-      handler: ShortcutHandler
-    })
+export type BindingInput = string | BindingSpec
 
 /** Normalized keyboard event shape exposed by handlers, traces, and errors. */
 export type NormalizedKeyEvent = {
@@ -406,6 +411,46 @@ export type EvaluationTrace = {
   winner?: string
 }
 
+/**
+ * Mutable collection of bindings owned by one runtime.
+ *
+ * Use a binding set when your app derives shortcuts from user settings,
+ * command metadata, or other mutable state and must replace them as one unit.
+ */
+export type BindingSet = {
+  /**
+   * Replaces the set's current bindings atomically.
+   *
+   * The next bindings are validated before the runtime swaps them into place.
+   * When any next binding is invalid, the set remains unchanged.
+   *
+   * Successful replacement removes any in-progress sequence state owned by the
+   * previous set contents.
+   *
+   * @throws When the binding set or its runtime is disposed, or when a binding
+   *   definition is invalid.
+   */
+  replace(next: readonly BindingSpec[]): void
+
+  /** Removes all bindings currently owned by the set. Equivalent to `replace([])`. */
+  clear(): void
+
+  /**
+   * Returns this set's current bindings in entry order.
+   *
+   * Returns `[]` after the binding set or its runtime is disposed.
+   */
+  getBindings(): readonly BindingSnapshot[]
+
+  /**
+   * Removes this set's bindings and permanently disposes the set.
+   *
+   * Safe to call more than once.
+   * After disposal, `replace` and `clear` throw.
+   */
+  dispose(): void
+}
+
 /** Runtime API returned by {@link createShortcuts}. */
 export type ShortcutRuntime = {
   /**
@@ -424,6 +469,19 @@ export type ShortcutRuntime = {
    * @returns `true` when the binding existed and was removed.
    */
   unbind(binding: BindingHandle | string): boolean
+
+  /**
+   * Creates a mutable binding collection that can be replaced atomically.
+   *
+   * This is useful for derived or user-configurable shortcuts that must be
+   * rebound as one unit.
+   *
+   * Repeated replacements keep the set's relative precedence stable against
+   * unrelated direct bindings or other binding sets.
+   *
+   * @throws When the runtime is disposed.
+   */
+  createBindingSet(): BindingSet
 
   /**
    * Pauses dispatch.
@@ -482,7 +540,7 @@ export type ShortcutRuntime = {
    */
   isAvailable(input: RunnableInput): boolean
 
-  /** Returns a snapshot of all registered bindings in insertion order. */
+  /** Returns a snapshot of all registered bindings in runtime precedence order. */
   getBindings(): readonly BindingSnapshot[]
 
   /** Returns non-expired sequence states. */

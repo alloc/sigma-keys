@@ -1,6 +1,7 @@
 import { createShortcuts } from '../src/index'
 import { mountBasicShortcuts } from '../examples/basic-usage'
 import { mountCommandAvailability } from '../examples/command-availability'
+import { mountCustomizableShortcuts } from '../examples/customizable-shortcuts'
 import { beginShortcutCapture } from '../examples/record-shortcut'
 import { mountEditorShortcuts } from '../examples/scopes-and-when'
 import { mountNavigationShortcuts } from '../examples/sequences'
@@ -165,5 +166,53 @@ describe('documentation examples', () => {
     expect(saved).toEqual(['Ctrl+k c'])
 
     shortcuts.dispose()
+  })
+
+  it('demonstrates rebinding a user-configurable shortcut set', () => {
+    withPlatform('MacIntel', () => {
+      const host = document.createElement('div')
+      document.body.appendChild(host)
+
+      const state = {
+        openPalette: 'Meta+k',
+        renameSymbol: 'g r',
+      }
+      const calls: string[] = []
+      const { shortcuts, syncBindings } = mountCustomizableShortcuts(host, state, {
+        openPalette: () => calls.push('palette'),
+        renameSymbol: () => calls.push('rename'),
+      })
+
+      const originalPaletteEvent = keydown(host, {
+        key: 'k',
+        metaKey: true,
+        code: 'KeyK',
+      })
+      expect(originalPaletteEvent.defaultPrevented).toBe(true)
+
+      keydown(host, { key: 'g', code: 'KeyG' })
+      keydown(host, { key: 'r', code: 'KeyR' })
+      expect(calls).toEqual(['palette', 'rename'])
+
+      syncBindings({
+        openPalette: 'Meta+/',
+        renameSymbol: null,
+      })
+
+      keydown(host, { key: 'k', metaKey: true, code: 'KeyK' })
+      keydown(host, { key: 'g', code: 'KeyG' })
+      keydown(host, { key: 'r', code: 'KeyR' })
+      expect(calls).toEqual(['palette', 'rename'])
+
+      const reboundPaletteEvent = keydown(host, {
+        key: '/',
+        metaKey: true,
+        code: 'Slash',
+      })
+      expect(reboundPaletteEvent.defaultPrevented).toBe(true)
+      expect(calls).toEqual(['palette', 'rename', 'palette'])
+
+      shortcuts.dispose()
+    })
   })
 })

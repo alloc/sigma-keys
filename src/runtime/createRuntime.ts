@@ -12,6 +12,8 @@ import { compileWhenClause } from '../when/compileWhenClause'
 import type {
   BindingHandle,
   BindingInput,
+  BindingSet,
+  BindingSpec,
   BindingSnapshot,
   CandidateTrace,
   ErrorInfo,
@@ -26,6 +28,12 @@ import type {
 } from '../types/public'
 import type { BindingRecord, Candidate, EvaluateResult } from '../types/internal'
 import { RESERVED_CONTEXT_NAMES } from '../types/internal'
+
+type BindingSetState = {
+  slotOrder: number
+  bindingIds: string[]
+  disposed: boolean
+}
 
 /**
  * Creates a keyboard shortcut runtime for a document or element boundary.
@@ -57,13 +65,14 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
 
   const bindings = new Map<string, BindingRecord>()
   const bindingOrder: string[] = []
+  const bindingSetByBindingId = new Map<string, BindingSetState>()
   const whenCache = new Map<string, ReturnType<typeof compileWhenClause>>()
   const pauseState = new PauseState()
   const recordState = new RecordStateController()
   const sequenceMachine = new SequenceMachine()
   let disposed = false
   let nextBindingId = 1
-  let nextBindingOrder = 1
+  let nextSlotOrder = 1
   let userContext: Record<string, unknown> = {}
 
   const handleNativeEvent = (event: Event): void => {
@@ -77,17 +86,8 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
 
   function bind(input: BindingInput, handler?: ShortcutHandler): BindingHandle {
     ensureNotDisposed()
-    const compiled = compileBinding({
-      input,
-      handler,
-      id: `binding-${nextBindingId++}`,
-      order: nextBindingOrder++,
-      defaultEditablePolicy,
-      platform,
-    })
-
-    bindings.set(compiled.id, compiled)
-    bindingOrder.push(compiled.id)
+    const compiled = compileRuntimeBinding(input, handler, nextSlotOrder++, 0)
+    registerBinding(compiled)
 
     return {
       id: compiled.id,
@@ -99,16 +99,59 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
 
   function unbind(binding: BindingHandle | string): boolean {
     const id = typeof binding === 'string' ? binding : binding.id
-    const existed = bindings.delete(id)
-    if (!existed) {
+    const bindingSet = bindingSetByBindingId.get(id)
+    if (!removeBinding(id)) {
       return false
     }
-    sequenceMachine.removeBinding(id)
-    const index = bindingOrder.indexOf(id)
-    if (index >= 0) {
-      bindingOrder.splice(index, 1)
+    if (bindingSet) {
+      bindingSet.bindingIds = bindingSet.bindingIds.filter((bindingId) => bindingId !== id)
     }
     return true
+  }
+
+  function createBindingSet(): BindingSet {
+    ensureNotDisposed()
+    const bindingSet: BindingSetState = {
+      slotOrder: nextSlotOrder++,
+      bindingIds: [],
+      disposed: false,
+    }
+
+    return {
+      replace(next: readonly BindingSpec[]): void {
+        ensureBindingSetUsable(bindingSet)
+        const nextBindings = next.map((input, index) =>
+          compileRuntimeBinding(input, undefined, bindingSet.slotOrder, index),
+        )
+        replaceBindingSetBindings(bindingSet, nextBindings)
+      },
+
+      clear(): void {
+        ensureBindingSetUsable(bindingSet)
+        replaceBindingSetBindings(bindingSet, [])
+      },
+
+      getBindings(): readonly BindingSnapshot[] {
+        if (disposed || bindingSet.disposed) {
+          return []
+        }
+        return bindingSet.bindingIds
+          .map((id) => bindings.get(id))
+          .filter((binding): binding is BindingRecord => !!binding)
+          .map(toBindingSnapshot)
+      },
+
+      dispose(): void {
+        if (bindingSet.disposed || disposed) {
+          return
+        }
+        bindingSet.disposed = true
+        for (const id of bindingSet.bindingIds) {
+          removeBinding(id)
+        }
+        bindingSet.bindingIds = []
+      },
+    }
   }
 
   function pause(scope?: string): void {
@@ -203,15 +246,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
   }
 
   function getBindings(): readonly BindingSnapshot[] {
-    return getBindingRecords().map((binding) => ({
-      id: binding.id,
-      type: binding.type,
-      expression: binding.expression,
-      scopes: [...binding.scopes],
-      priority: binding.priority,
-      keyEvent: binding.keyEvent,
-      whenSource: binding.whenSource,
-    }))
+    return getBindingRecords().map(toBindingSnapshot)
   }
 
   function getActiveSequences() {
@@ -231,6 +266,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     runtimeTarget.removeEventListener('keyup', handleNativeEvent)
     bindings.clear()
     bindingOrder.length = 0
+    bindingSetByBindingId.clear()
     sequenceMachine.clear()
     pauseState.clear()
     recordState.dispose()
@@ -453,6 +489,96 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
       .filter((binding): binding is BindingRecord => !!binding)
   }
 
+  function compileRuntimeBinding(
+    input: BindingInput,
+    handler: ShortcutHandler | undefined,
+    slotOrder: number,
+    entryOrder: number,
+  ): BindingRecord {
+    return compileBinding({
+      input,
+      handler,
+      id: `binding-${nextBindingId++}`,
+      slotOrder,
+      entryOrder,
+      defaultEditablePolicy,
+      platform,
+    })
+  }
+
+  function registerBinding(binding: BindingRecord): void {
+    bindings.set(binding.id, binding)
+    const index = findBindingInsertIndex(binding.slotOrder)
+    bindingOrder.splice(index, 0, binding.id)
+  }
+
+  function removeBinding(id: string): boolean {
+    const existed = bindings.delete(id)
+    if (!existed) {
+      return false
+    }
+    sequenceMachine.removeBinding(id)
+    bindingSetByBindingId.delete(id)
+    const index = bindingOrder.indexOf(id)
+    if (index >= 0) {
+      bindingOrder.splice(index, 1)
+    }
+    return true
+  }
+
+  function replaceBindingSetBindings(
+    bindingSet: BindingSetState,
+    nextBindings: readonly BindingRecord[],
+  ): void {
+    const previousBindingIds = bindingSet.bindingIds
+    let insertIndex =
+      previousBindingIds.length > 0 ? bindingOrder.indexOf(previousBindingIds[0]!) : -1
+    if (insertIndex < 0) {
+      insertIndex = findBindingInsertIndex(bindingSet.slotOrder)
+    }
+
+    for (const id of previousBindingIds) {
+      removeBinding(id)
+    }
+
+    const nextBindingIds = nextBindings.map((binding) => binding.id)
+    for (const binding of nextBindings) {
+      bindings.set(binding.id, binding)
+      bindingSetByBindingId.set(binding.id, bindingSet)
+    }
+    bindingOrder.splice(insertIndex, 0, ...nextBindingIds)
+    bindingSet.bindingIds = nextBindingIds
+  }
+
+  function findBindingInsertIndex(slotOrder: number): number {
+    for (let index = 0; index < bindingOrder.length; index += 1) {
+      const binding = bindings.get(bindingOrder[index]!)
+      if (binding && binding.slotOrder > slotOrder) {
+        return index
+      }
+    }
+    return bindingOrder.length
+  }
+
+  function ensureBindingSetUsable(bindingSet: BindingSetState): void {
+    if (bindingSet.disposed) {
+      throw new TypeError('Binding set is disposed')
+    }
+    ensureNotDisposed()
+  }
+
+  function toBindingSnapshot(binding: BindingRecord): BindingSnapshot {
+    return {
+      id: binding.id,
+      type: binding.type,
+      expression: binding.expression,
+      scopes: [...binding.scopes],
+      priority: binding.priority,
+      keyEvent: binding.keyEvent,
+      whenSource: binding.whenSource,
+    }
+  }
+
   function getCompiledWhenClause(source: string) {
     let compiled = whenCache.get(source)
     if (!compiled) {
@@ -471,6 +597,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
   return {
     bind,
     unbind,
+    createBindingSet,
     pause,
     resume,
     record,

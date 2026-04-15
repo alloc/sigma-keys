@@ -54,7 +54,10 @@ export function chooseWinner(
     if (leftScopeIndex !== rightScopeIndex) {
       return leftScopeIndex - rightScopeIndex
     }
-    return right.binding.order - left.binding.order
+    if (left.binding.slotOrder !== right.binding.slotOrder) {
+      return right.binding.slotOrder - left.binding.slotOrder
+    }
+    return right.binding.entryOrder - left.binding.entryOrder
   })[0]
 }
 

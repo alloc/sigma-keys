@@ -2,8 +2,8 @@
 
 `powerkeys` is a keyboard runtime for web apps that need more than a few flat
 `keydown` listeners. It gives you declarative bindings, layered scopes,
-multi-step sequences, `when` clauses, shortcut recording, and a shared
-availability check for external actions.
+multi-step sequences, `when` clauses, shortcut recording, atomic rebinding
+through binding sets, and a shared availability check for external actions.
 
 The important boundary is this:
 
@@ -25,6 +25,8 @@ Use `powerkeys` when your app needs one or more of these:
 - shortcuts that depend on app state such as selection, mode, or read-only
 - multi-step sequences such as `g g` or `g i`
 - user-recordable shortcut expressions
+- shortcuts derived from persisted user preferences or other mutable app state
+  that need atomic replacement
 - one source of truth for shortcut eligibility and external action availability
 - a DOM boundary narrower than the whole document
 
@@ -89,7 +91,18 @@ Recording
 
 - `record()` captures canonical shortcut expressions from live input.
 - Recording is separate from registration. The common flow is: record, persist
-  the expression, then later bind it.
+  the expression, then later bind it directly or swap it into a `BindingSet`.
+
+Binding Sets
+
+- Create one with `shortcuts.createBindingSet()`.
+- A binding set owns a mutable collection of bindings that can be replaced as
+  one unit.
+- `replace(nextBindings)` validates the whole next collection before swapping
+  it into place.
+- Failed replacement leaves the current bindings unchanged.
+- Successful replacement drops any in-progress sequence state owned by the
+  previous set contents.
 
 # Data Flow / Lifecycle
 
@@ -97,7 +110,9 @@ Recording
 2. Keep your app's real state in your app, and mirror only the parts relevant to
    shortcut eligibility into runtime context.
 3. Return active scopes from `getActiveScopes` in precedence order.
-4. Register bindings with `bind`.
+4. Register bindings with `bind` for static shortcuts or
+   `shortcuts.createBindingSet()` for derived shortcut collections that need
+   atomic replacement.
 5. If your app has its own command or action objects, put shared availability on
    those objects with `scope` and `when`.
 6. Reuse that same `scope` and `when` when attaching a keyboard shortcut.
@@ -144,7 +159,13 @@ Let users choose their own shortcut
 
 - `record({ onUpdate, suppressHandlers: true })`
 - Save the returned `ShortcutRecording.expression`
-- Rebind that expression later with `bind`
+- Rebind that expression later with `bind` or `BindingSet.replace`
+
+Rebind a user-configurable shortcut set
+
+- `const userBindings = shortcuts.createBindingSet()`
+- Recompute your next object-form bindings in app code
+- `userBindings.replace(nextBindings)` to swap them atomically
 
 Debug why a shortcut did not fire
 
@@ -154,6 +175,8 @@ Debug why a shortcut did not fire
 
 - Keep your command or action model in your app, and treat `powerkeys` as the
   keyboard and availability layer.
+- Use one long-lived `BindingSet` when shortcuts are derived from mutable app
+  state or persisted user preferences and must be replaced as one unit.
 - Use scopes for major UI layers such as modal, editor, sidebar, and root.
 - Use `when` for state that changes frequently inside one scope, such as
   selection state or read-only mode.
@@ -168,6 +191,8 @@ Debug why a shortcut did not fire
   search keywords into `powerkeys`.
 - Do not use `pause` as a visibility switch for menus or palettes. It is a
   keyboard-only control.
+- Do not rebuild one dynamic shortcut collection with manual unbind and rebind
+  loops when one `BindingSet` can own that collection.
 - Do not make shared availability depend on keyboard-event details such as
   `event.key` or modifier state.
 - Do not duplicate the same eligibility rule in separate shortcut-only and
@@ -181,6 +206,8 @@ Debug why a shortcut did not fire
 - Each binding must define exactly one of `combo` or `sequence`.
 - Only one recording session may be active per runtime.
 - Only one binding wins a given event.
+- `BindingSet.replace` is atomic: invalid next bindings do not partially update
+  the active set.
 - Editable targets are blocked by default.
 - Reserved top-level context names are `context`, `event`, `scope`, and
   `runtime`.
@@ -190,7 +217,9 @@ Debug why a shortcut did not fire
 
 # Error Model
 
-- Invalid binding definitions throw synchronously during `bind`.
+- Invalid binding definitions throw synchronously during `bind` or
+  `BindingSet.replace`.
+- Failed `BindingSet.replace` calls leave the set unchanged.
 - Invalid `when` syntax also throws synchronously during `isAvailable`.
 - Handler errors are sent to `onError` when provided; otherwise they are
   rethrown asynchronously.
@@ -226,6 +255,10 @@ Debug why a shortcut did not fire
 - **Editable Policy**
   - The rule that decides whether a binding may run while focus is inside an
     editable element.
+
+- **Binding Set**
+  - A runtime-owned collection of bindings that can be replaced, cleared, or
+    disposed as one unit.
 
 # Non-Goals
 

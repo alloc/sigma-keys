@@ -4,7 +4,8 @@
 
 `powerkeys` brings VS Code-style keyboard shortcuts to modern web apps. It handles
 scoped bindings, multi-step sequences, `when` clauses, editable-target policies,
-shortcut recording, and external availability checks in one small runtime.
+shortcut recording, atomic rebinding through binding sets, and external
+availability checks in one small runtime.
 
 ## Installation
 
@@ -32,6 +33,7 @@ shortcuts.bind({
 
 - Conceptual guide: [docs/context.md](docs/context.md)
 - Runnable examples: [examples/basic-usage.ts](examples/basic-usage.ts),
+  [examples/customizable-shortcuts.ts](examples/customizable-shortcuts.ts),
   [examples/command-availability.ts](examples/command-availability.ts),
   [examples/scopes-and-when.ts](examples/scopes-and-when.ts),
   [examples/sequences.ts](examples/sequences.ts),
