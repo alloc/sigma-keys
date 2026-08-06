@@ -13,6 +13,7 @@ const combos = [
   'Mod+S',
   'Mod+O',
   'Mod+0',
+  'Mod+-',
   'Mod+1',
   'Mod+2',
   'Mod+3',

@@ -26,7 +26,7 @@ describe('blocklist presets', () => {
 
   it('covers the shared browser actions and browser-specific reservations', () => {
     expect(combos(commonBrowserShortcuts)).toEqual(
-      expect.arrayContaining(['Mod+F', 'Mod+P', 'Mod+S', 'Mod+O', 'Mod+0']),
+      expect.arrayContaining(['Mod+F', 'Mod+P', 'Mod+S', 'Mod+O', 'Mod+0', 'Mod+-']),
     )
     expect(combos(commonBrowserShortcuts)).not.toContain('Mod+Shift+N')
     expect(combos(chromeBrowserShortcuts)).toEqual(
