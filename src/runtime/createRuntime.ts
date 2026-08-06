@@ -1,4 +1,11 @@
 import { compileBinding, normalizeScopes } from '../bindings/compileBinding'
+import {
+  compileBlocklist,
+  compileBlocklistCombo,
+  findBlockedEntries,
+  findBlocklistMatches,
+  toShortcutValidationError,
+} from '../blocklists/compileBlocklist'
 import { getBoundaryDepth, isWithinBoundary } from '../events/isWithinBoundary'
 import { normalizeKeyboardEvent } from '../events/normalizeKeyboardEvent'
 import { chooseWinner, evaluateEditablePolicy, applyConsumption, matchesStep } from './dispatch'
@@ -26,6 +33,7 @@ import type {
   ShortcutHandler,
   ShortcutOptions,
   ShortcutRuntime,
+  ShortcutValidationResult,
   WhenTrace,
 } from '../types/public'
 import type { BindingRecord, Candidate, EvaluateResult } from '../types/internal'
@@ -65,6 +73,8 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
   const canDispatch = options.canDispatch
   const onError = options.onError
   const platform = detectPlatform()
+  const compiledBlocklist = compileBlocklist(options.blocklist, platform)
+  const hasNativeBlocklist = compiledBlocklist.some(({ entry }) => entry.category === 'browser')
 
   const bindings = new Map<string, BindingRecord>()
   const bindingOrder: string[] = []
@@ -84,8 +94,24 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     }
   }
 
+  const handleBlockedEvent = (event: Event): void => {
+    if (disposed || !(event instanceof KeyboardEvent)) {
+      return
+    }
+    if (!isWithinBoundary(runtimeTarget, event)) {
+      return
+    }
+    const normalized = normalizeKeyboardEvent(event)
+    if (findBlockedEntries(compiledBlocklist, normalized).length > 0) {
+      event.preventDefault()
+    }
+  }
+
   runtimeTarget.addEventListener('keydown', handleNativeEvent)
   runtimeTarget.addEventListener('keyup', handleNativeEvent)
+  if (hasNativeBlocklist) {
+    runtimeTarget.addEventListener('keydown', handleBlockedEvent, true)
+  }
 
   function bind(input: BindingInput, handler?: ShortcutHandler): BindingHandle {
     ensureNotDisposed()
@@ -263,6 +289,37 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     return sequenceMachine.snapshots(Date.now())
   }
 
+  function validateShortcut(combo: string): ShortcutValidationResult {
+    ensureNotDisposed()
+    try {
+      const step = compileBlocklistCombo(combo, platform)
+      const matches = findBlocklistMatches(compiledBlocklist, step)
+      if (matches.length === 0) {
+        return { valid: true, combo, canonicalCombo: step.expression }
+      }
+      return {
+        valid: false,
+        combo,
+        canonicalCombo: step.expression,
+        errors: matches.map(({ entry }) =>
+          toShortcutValidationError(combo, step.expression, entry),
+        ),
+      }
+    } catch (error) {
+      return {
+        valid: false,
+        combo,
+        errors: [
+          {
+            code: 'invalid-shortcut',
+            combo,
+            error: error instanceof Error ? error : new Error(String(error)),
+          },
+        ],
+      }
+    }
+  }
+
   function explain(event: KeyboardEvent): EvaluationTrace {
     return evaluateKeyboardEvent(event, false).trace
   }
@@ -274,6 +331,9 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     disposed = true
     runtimeTarget.removeEventListener('keydown', handleNativeEvent)
     runtimeTarget.removeEventListener('keyup', handleNativeEvent)
+    if (hasNativeBlocklist) {
+      runtimeTarget.removeEventListener('keydown', handleBlockedEvent, true)
+    }
     bindings.clear()
     bindingOrder.length = 0
     bindingSetByBindingId.clear()
@@ -291,6 +351,12 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
       return { trace: { event: normalized, candidates: [] } }
     }
 
+    const blockedBy = findBlockedEntries(compiledBlocklist, normalized)
+    if (mutate && blockedBy.length > 0) {
+      nativeEvent.preventDefault()
+    }
+    const blockedTrace = blockedBy.length > 0 ? { blockedBy } : {}
+
     const now = Date.now()
     if (mutate) {
       sequenceMachine.prune(now)
@@ -299,10 +365,10 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
     const traceCandidates = new Map<string, CandidateTrace>()
     const recordingIntercepted = recordState.handle(normalized, nativeEvent, mutate, onError)
     if (recordingIntercepted.intercepted) {
-      return { trace: { event: normalized, candidates: [] } }
+      return { trace: { event: normalized, ...blockedTrace, candidates: [] } }
     }
     if (normalized.composing) {
-      return { trace: { event: normalized, candidates: [] } }
+      return { trace: { event: normalized, ...blockedTrace, candidates: [] } }
     }
 
     const activeScopes = resolveActiveScopes(getActiveScopes)
@@ -444,6 +510,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
       winner,
       trace: {
         event: normalized,
+        ...blockedTrace,
         candidates: [...traceCandidates.values()],
         winner: winner?.binding.id,
       },
@@ -675,6 +742,7 @@ export function createShortcuts(options: ShortcutOptions): ShortcutRuntime {
   return {
     bind,
     bindWithin,
+    validateShortcut,
     unbind,
     createBindingSet,
     pause,

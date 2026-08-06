@@ -2,6 +2,7 @@ import type {
   EditablePolicy,
   EvaluationTrace,
   KeyEventType,
+  ShortcutBlocklistEntry,
   ShortcutHandler,
   ShortcutRecording,
   WhenTrace,
@@ -16,6 +17,11 @@ export type CompiledStep = {
   code?: string
   modifiers: readonly ModifierName[]
   expression: string
+}
+
+export type CompiledBlocklistEntry = {
+  entry: ShortcutBlocklistEntry
+  step: CompiledStep
 }
 
 export type CompiledWhenClause = {

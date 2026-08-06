@@ -5,7 +5,8 @@
 `powerkeys` brings VS Code-style keyboard shortcuts to modern web apps. It handles
 scoped bindings, multi-step sequences, `when` clauses, editable-target policies,
 shortcut recording, atomic rebinding through binding sets, pre-dispatch
-candidate guards, and external availability checks in one small runtime.
+candidate guards, blocklist validation, and external availability checks in one
+small runtime.
 
 ## Installation
 
@@ -31,6 +32,25 @@ shortcuts.bind({
 // Use the same syntax for a shortcut limited to an element subtree.
 const editorElement = document.querySelector<HTMLElement>('#editor')!
 shortcuts.bindWithin(editorElement, 'Mod+Enter', () => submitEditor())
+```
+
+For user-configurable shortcuts, a runtime can also carry browser and operating
+system reservations. Browser entries attempt to prevent matching native defaults;
+OS entries are available to validation but cannot be intercepted by page
+JavaScript.
+
+```ts
+import { commonBrowserShortcuts, createShortcuts } from 'powerkeys'
+
+const shortcuts = createShortcuts({
+  target: document,
+  blocklist: commonBrowserShortcuts,
+})
+
+const result = shortcuts.validateShortcut('Mod+w')
+if (!result.valid) {
+  // Map result.errors to app-owned UI copy or policy.
+}
 ```
 
 ## Documentation Map

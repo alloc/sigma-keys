@@ -11,6 +11,65 @@ export type EditablePolicy = 'ignore-editable' | 'allow-in-editable' | 'allow-if
 /** Keyboard event phase used for bindings and recording. */
 export type KeyEventType = 'keydown' | 'keyup'
 
+/** Category of a shortcut reservation in a blocklist. */
+export type ShortcutBlocklistCategory = 'browser' | 'os'
+
+/** A browser family that may own a browser-level shortcut. */
+export type ShortcutBrowser = 'chrome' | 'edge' | 'firefox' | 'safari'
+
+/** Platform associated with a shortcut reservation. */
+export type ShortcutPlatform = 'mac' | 'windows' | 'linux' | 'other'
+
+/** Metadata describing a shortcut that should be reserved by an app policy. */
+export type ShortcutBlocklistEntry = {
+  /** Combo expression such as `"Mod+W"`. Blocklist entries cannot be sequences. */
+  combo: string
+
+  /** Whether the shortcut belongs to a browser or the operating system. */
+  category: ShortcutBlocklistCategory
+
+  /** Browser family associated with a browser-level entry, when known. */
+  browser?: ShortcutBrowser
+
+  /** Platform associated with the entry, when it is platform-specific. */
+  platform?: ShortcutPlatform
+}
+
+/** Readonly blocklist accepted by {@link ShortcutOptions}. */
+export type ShortcutBlocklist = readonly ShortcutBlocklistEntry[]
+
+/** Structured issue returned when a shortcut cannot pass blocklist validation. */
+export type ShortcutValidationError =
+  | {
+      /** The expression could not be parsed as a combo. */
+      code: 'invalid-shortcut'
+      combo: string
+      error: Error
+    }
+  | {
+      /** The expression matched a configured blocklist entry. */
+      code: 'shortcut-blocked'
+      combo: string
+      canonicalCombo: string
+      category: ShortcutBlocklistCategory
+      browser?: ShortcutBrowser
+      platform?: ShortcutPlatform
+    }
+
+/** Result returned by {@link ShortcutRuntime.validateShortcut}. */
+export type ShortcutValidationResult =
+  | {
+      valid: true
+      combo: string
+      canonicalCombo: string
+    }
+  | {
+      valid: false
+      combo: string
+      canonicalCombo?: string
+      errors: readonly ShortcutValidationError[]
+    }
+
 /** Options for creating a shortcut runtime. */
 export type ShortcutOptions = {
   /**
@@ -20,6 +79,19 @@ export type ShortcutOptions = {
    * events that bubble from within that subtree.
    */
   target: Document | HTMLElement
+
+  /**
+   * Shortcuts reserved by the browser or operating system.
+   *
+   * Browser entries call `preventDefault()` for matching `keydown` events within
+   * the runtime boundary when the browser delivers the event to the page.
+   * Operating-system entries are used by {@link ShortcutRuntime.validateShortcut}
+   * but cannot be intercepted by page JavaScript.
+   *
+   * Blocklist entries do not reject application bindings automatically. Use
+   * `validateShortcut` when a downstream app wants to enforce its own policy.
+   */
+  blocklist?: ShortcutBlocklist
 
   /**
    * Time window, in milliseconds, before an in-progress sequence expires.
@@ -470,6 +542,9 @@ export type EvaluationTrace = {
   /** Normalized event that was evaluated. */
   event: NormalizedKeyEvent
 
+  /** Browser blocklist entries matched by this event, when any. */
+  blockedBy?: readonly ShortcutBlocklistEntry[]
+
   /** Trace entries for each registered binding. */
   candidates: CandidateTrace[]
 
@@ -536,6 +611,14 @@ export type ShortcutRuntime = {
    * overrides `within` when object-form input already declares one.
    */
   bindWithin(within: HTMLElement, input: BindingInput, handler?: ShortcutHandler): BindingHandle
+
+  /**
+   * Checks a combo against the configured blocklist without registering it.
+   *
+   * The result contains machine-readable issues only; downstreams own any
+   * user-facing copy and policy decisions.
+   */
+  validateShortcut(combo: string): ShortcutValidationResult
 
   /**
    * Removes a binding.

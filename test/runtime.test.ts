@@ -1,4 +1,9 @@
-import { createShortcuts } from 'powerkeys'
+import {
+  chromeBrowserShortcuts,
+  commonBrowserShortcuts,
+  createShortcuts,
+  macOsShortcuts,
+} from 'powerkeys'
 
 function keydown(target: EventTarget, init: KeyboardEventInit & { key: string }): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
@@ -10,6 +15,23 @@ function keyup(target: EventTarget, init: KeyboardEventInit & { key: string }): 
   const event = new KeyboardEvent('keyup', { bubbles: true, cancelable: true, ...init })
   target.dispatchEvent(event)
   return event
+}
+
+function withPlatform<T>(platform: string, run: () => T): T {
+  const descriptor = Object.getOwnPropertyDescriptor(navigator, 'platform')
+  Object.defineProperty(navigator, 'platform', {
+    configurable: true,
+    value: platform,
+  })
+  try {
+    return run()
+  } finally {
+    if (descriptor) {
+      Object.defineProperty(navigator, 'platform', descriptor)
+    } else {
+      delete (navigator as Navigator & { platform?: string }).platform
+    }
+  }
 }
 
 describe('powerkeys', () => {
@@ -28,6 +50,177 @@ describe('powerkeys', () => {
     keydown(host, { key: 'k', ctrlKey: true, code: 'KeyK' })
 
     expect(calls).toEqual(['palette'])
+    shortcuts.dispose()
+  })
+
+  it('blocks browser defaults while still dispatching app bindings', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const calls: string[] = []
+    const shortcuts = createShortcuts({
+      target: host,
+      blocklist: [{ combo: 'Ctrl+w', category: 'browser', browser: 'chrome' }],
+    })
+    shortcuts.bind('Ctrl+w', () => calls.push('close-editor'))
+
+    const event = keydown(host, { key: 'w', ctrlKey: true, code: 'KeyW' })
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(calls).toEqual(['close-editor'])
+    expect(shortcuts.explain(event).blockedBy).toEqual([
+      { combo: 'Ctrl+w', category: 'browser', browser: 'chrome' },
+    ])
+    shortcuts.dispose()
+  })
+
+  it('blocks browser defaults during capture before bubbling is stopped', () => {
+    const host = document.createElement('div')
+    const child = document.createElement('button')
+    host.appendChild(child)
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({
+      target: host,
+      blocklist: [{ combo: 'Ctrl+w', category: 'browser' }],
+    })
+    child.addEventListener('keydown', (event) => event.stopPropagation())
+
+    const event = keydown(child, { key: 'w', ctrlKey: true, code: 'KeyW' })
+
+    expect(event.defaultPrevented).toBe(true)
+    shortcuts.dispose()
+  })
+
+  it('validates browser and operating-system blocklist entries structurally', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({
+      target: host,
+      blocklist: [
+        { combo: 'Ctrl+w', category: 'browser', browser: 'chrome' },
+        { combo: 'Ctrl+Alt+Delete', category: 'os', platform: 'windows' },
+      ],
+    })
+
+    const browserResult = shortcuts.validateShortcut('Ctrl+w')
+    expect(browserResult).toEqual({
+      valid: false,
+      combo: 'Ctrl+w',
+      canonicalCombo: 'Ctrl+w',
+      errors: [
+        {
+          code: 'shortcut-blocked',
+          combo: 'Ctrl+w',
+          canonicalCombo: 'Ctrl+w',
+          category: 'browser',
+          browser: 'chrome',
+        },
+      ],
+    })
+
+    const invalidResult = shortcuts.validateShortcut('g g')
+    expect(invalidResult.valid).toBe(false)
+    if (!invalidResult.valid) {
+      expect(invalidResult.errors[0]).toMatchObject({
+        code: 'invalid-shortcut',
+        combo: 'g g',
+      })
+    }
+
+    const ordinaryResult = shortcuts.validateShortcut('Ctrl+x')
+    expect(ordinaryResult).toEqual({ valid: true, combo: 'Ctrl+x', canonicalCombo: 'Ctrl+x' })
+    shortcuts.dispose()
+  })
+
+  it('uses operating-system entries for validation without preventing browser defaults', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({
+      target: host,
+      blocklist: [{ combo: 'Ctrl+Alt+Delete', category: 'os' }],
+    })
+
+    const event = keydown(host, {
+      key: 'Delete',
+      code: 'Delete',
+      ctrlKey: true,
+      altKey: true,
+    })
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(shortcuts.validateShortcut('Ctrl+Alt+Delete')).toMatchObject({
+      valid: false,
+      errors: [{ code: 'shortcut-blocked', category: 'os' }],
+    })
+    shortcuts.dispose()
+  })
+
+  it('resolves Mod and platform-specific entries using the current platform', () => {
+    withPlatform('MacIntel', () => {
+      const host = document.createElement('div')
+      document.body.appendChild(host)
+
+      const shortcuts = createShortcuts({
+        target: host,
+        blocklist: [
+          ...commonBrowserShortcuts,
+          ...chromeBrowserShortcuts,
+          ...macOsShortcuts,
+          { combo: 'Meta+Tab', category: 'browser', platform: 'windows' },
+        ],
+      })
+
+      const browserResult = shortcuts.validateShortcut('Mod+w')
+      expect(browserResult.valid).toBe(false)
+
+      expect(shortcuts.validateShortcut('Meta+[')).toMatchObject({
+        valid: false,
+        errors: [
+          {
+            code: 'shortcut-blocked',
+            category: 'browser',
+            browser: 'chrome',
+            platform: 'mac',
+          },
+        ],
+      })
+
+      const osResult = shortcuts.validateShortcut('Meta+Space')
+      expect(osResult).toMatchObject({
+        valid: false,
+        errors: [{ code: 'shortcut-blocked', category: 'os', platform: 'mac' }],
+      })
+
+      expect(shortcuts.validateShortcut('Meta+Tab')).toMatchObject({
+        valid: false,
+        errors: [{ code: 'shortcut-blocked', category: 'os', platform: 'mac' }],
+      })
+      shortcuts.dispose()
+    })
+  })
+
+  it('does not block composing or keyup events', () => {
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+
+    const shortcuts = createShortcuts({
+      target: host,
+      blocklist: [{ combo: 'Ctrl+w', category: 'browser' }],
+    })
+
+    const composingEvent = keydown(host, {
+      key: 'w',
+      code: 'KeyW',
+      ctrlKey: true,
+      isComposing: true,
+    })
+    const keyupEvent = keyup(host, { key: 'w', code: 'KeyW', ctrlKey: true })
+
+    expect(composingEvent.defaultPrevented).toBe(false)
+    expect(keyupEvent.defaultPrevented).toBe(false)
     shortcuts.dispose()
   })
 

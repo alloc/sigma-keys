@@ -15,6 +15,7 @@
     "examples"
   ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     "source": "./src/index.ts",
     "types": "./dist/index.d.mts",

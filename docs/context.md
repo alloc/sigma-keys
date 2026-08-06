@@ -38,7 +38,8 @@ Use `powerkeys` when your app needs one or more of these:
 
 `powerkeys` is a poor fit when you need one or more of these instead:
 
-- OS-level or browser-global shortcuts outside the current document
+- OS-level shortcuts cannot be intercepted from the current document (though
+  they can be represented in a blocklist for validation)
 - a full command system or palette framework that already owns keyboard input
 - direct DOM listeners with no meaningful state, scope, or conflict rules
 - a library that should own your command registry, menu model, or UI rendering
@@ -71,6 +72,23 @@ Bindings
   `KeyL` key, including macOS Option layouts that report a symbol in
   `event.key`. Non-Alt printable bindings stay semantic unless they use an
   explicit physical code such as `Digit1` or `KeyL`.
+
+Blocklists
+
+- A `ShortcutBlocklistEntry` reserves one combo for either a `browser` or `os`
+  category.
+- Browser entries attempt to prevent the browser's native default for matching
+  `keydown` events inside the runtime boundary when the browser delivers the
+  event to the page.
+- Operating-system entries cannot be intercepted by page JavaScript, but they
+  participate in `validateShortcut` results.
+- Blocklist entries do not reject application bindings automatically. Downstream
+  apps decide whether a validation issue is a warning, a hard error, or an
+  intentional override.
+- Presets are independent named exports such as `commonBrowserShortcuts`,
+  `chromeBrowserShortcuts`, `safariBrowserShortcuts`, `macOsShortcuts`, and
+  `windowsOsShortcuts`. Compose the entries appropriate for the current browser
+  and platform.
 
 Scopes
 
@@ -209,10 +227,16 @@ Rebind a user-configurable shortcut set
 - Recompute your next object-form bindings in app code
 - `userBindings.replace(nextBindings)` to swap them atomically
 
+Validate a user-configurable shortcut
+
+- Pass browser and operating-system reservations through `blocklist`
+- Call `validateShortcut(combo)` before persisting or binding the choice
+- Handle `ShortcutValidationError.code` and `category` in app-owned UI policy
+
 Debug why a shortcut did not fire
 
 - `explain(event)` to inspect scope, matcher, `when`, and `canDispatch`
-  decisions
+  decisions, including matching browser blocklist entries
 
 # Recommended Patterns
 
@@ -281,6 +305,10 @@ Debug why a shortcut did not fire
   the active recording.
 - Cancelling a recording rejects `RecordingSession.finished` with an
   `AbortError`.
+- `validateShortcut` returns structured `ShortcutValidationError` values instead
+  of choosing user-facing copy. Invalid expressions use
+  `code: "invalid-shortcut"`; reservations use `code: "shortcut-blocked"` and
+  identify their `browser`, `platform`, and `category` metadata when present.
 
 # Terminology
 
@@ -316,7 +344,8 @@ Debug why a shortcut did not fire
 
 # Non-Goals
 
-- global shortcuts outside the current DOM boundary
+- browser-global shortcuts outside the current DOM boundary
+- intercepting OS-level shortcuts outside the current DOM boundary
 - command registration or command identifiers owned by `powerkeys`
 - command-palette or menu rendering
 - framework-specific hooks or adapters
