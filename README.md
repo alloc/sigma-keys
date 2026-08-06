@@ -40,11 +40,16 @@ OS entries are available to validation but cannot be intercepted by page
 JavaScript.
 
 ```ts
-import { commonBrowserShortcuts, createShortcuts } from 'powerkeys'
+import {
+  chromeBrowserShortcuts,
+  commonBrowserShortcuts,
+  createShortcuts,
+  macOsShortcuts,
+} from 'powerkeys'
 
 const shortcuts = createShortcuts({
   target: document,
-  blocklist: commonBrowserShortcuts,
+  blocklist: [...commonBrowserShortcuts, ...chromeBrowserShortcuts, ...macOsShortcuts],
 })
 
 const result = shortcuts.validateShortcut('Mod+w')

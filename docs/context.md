@@ -89,6 +89,20 @@ Blocklists
   `chromeBrowserShortcuts`, `safariBrowserShortcuts`, `macOsShortcuts`, and
   `windowsOsShortcuts`. Compose the entries appropriate for the current browser
   and platform.
+- Presets cover high-confidence single-combo defaults. They intentionally omit
+  multi-step, mouse-only, `Fn`-only, and highly configurable desktop-environment
+  shortcuts; downstreams can add those entries to their own blocklist.
+- Preset data is a curated snapshot of the vendor tables for [Chrome], [Edge],
+  [Firefox], [Safari], [Windows], [macOS], and [GNOME]. Review those sources
+  when browser or desktop releases change their defaults.
+
+[Chrome]: https://support.google.com/chrome/answer/157179?hl=en
+[Edge]: https://support.microsoft.com/en-US/edge/keyboard-shortcuts-in-microsoft-edge
+[Firefox]: https://support.mozilla.org/en-US/kb/keyboard-shortcuts-perform-firefox-tasks-quickly
+[Safari]: https://support.apple.com/guide/safari/keyboard-shortcuts-and-gestures-cpsh003/mac
+[Windows]: https://support.microsoft.com/en-us/windows/keyboard-shortcuts-in-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec
+[macOS]: https://support.apple.com/en-euro/guide/mac-help/mchld6b9e240/mac
+[GNOME]: https://help.gnome.org/gnome-help/shell-keyboard-shortcuts.html
 
 Scopes
 
